@@ -36,8 +36,10 @@ pub fn router(app: Arc<App>) -> Router {
         .route("/api/settings/providers", post(settings_providers))
         .route("/api/settings/test/llm", post(settings_test_llm))
         .route("/api/settings/test/translate", post(settings_test_translate))
+        .route("/api/desktop-settings", get(desktop_settings_get).post(desktop_settings_set))
         .fallback(fallback)
         .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024))
+        .layer(middleware::from_fn(log_requests))
         .layer({
             let app_guard = app.clone();
             middleware::from_fn(move |req, next| {
@@ -85,6 +87,13 @@ async fn fallback(req: Request) -> Response {
     }
     // SPA 兜底:未知路径回首页
     asset("index.html", "text/html; charset=utf-8")
+}
+
+async fn log_requests(req: Request, next: Next) -> Response {
+    if cfg!(debug_assertions) || std::env::var_os("SKILL_VIEWER_VERBOSE").is_some() {
+        eprintln!("[http] {} {}", req.method(), req.uri().path());
+    }
+    next.run(req).await
 }
 
 /* ---------- 跨源防护 ---------- */
@@ -186,6 +195,7 @@ async fn status(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Re
         "state": state,
         "config": {
             "roots": roots,
+            "desktop": app.desktop,
             "providers": {
                 "translate": { "name": app.config.translate.name, "configured": translate_configured },
                 "llm": { "name": "openai-compat", "configured": llm_configured },
@@ -681,6 +691,22 @@ async fn confirm_inference(axum::extract::State(app): axum::extract::State<Arc<A
     app.cache.write_overrides(&data);
     let idx = app.run_analysis("confirm").await;
     Json(json!({ "ok": true, "affected": skill_ids, "groups": grouped_skills(&idx, &app.seeds) })).into_response()
+}
+
+/* ---------- 桌面设置(托盘/自启;仅桌面模式有实际效果,--serve 下只读写文件) ---------- */
+
+async fn desktop_settings_get(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Response {
+    Json(app.read_desktop_settings()).into_response()
+}
+
+async fn desktop_settings_set(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
+    let payload = parse_body(&body);
+    let latest = app.apply_desktop_settings(&payload);
+    // 桌面模式:同步应用开机自启
+    if let Some(handle) = app.tauri_handle.get() {
+        crate::apply_autostart(handle, &latest);
+    }
+    Json(latest).into_response()
 }
 
 /* ---------- 设置 ---------- */

@@ -175,6 +175,19 @@
         <p class="status-line">键盘:j / k 或 ↑↓ 在卡片间移动,Enter 打开;「/」聚焦搜索;查看器内「[」「]」切换文档。</p>
       </section>
 
+      <section class="settings-section" id="desktop-section" hidden>
+        <h3>桌面</h3>
+        <div class="field-row">
+          <label for="set-autostart">开机自启</label>
+          <input type="checkbox" id="set-autostart">
+        </div>
+        <div class="field-row">
+          <label for="set-close-exit">关闭即退出</label>
+          <input type="checkbox" id="set-close-exit">
+        </div>
+        <p class="status-line">默认关闭 = 点关闭按钮时最小化到托盘,右键托盘图标可显示或退出。</p>
+      </section>
+
       <div class="modal-actions">
         <button id="settings-save" class="btn btn-primary">保存并重新分析</button>
         <button id="settings-close" class="btn">关闭</button>

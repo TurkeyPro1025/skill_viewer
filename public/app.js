@@ -157,6 +157,9 @@ async function boot() {
   $('btn-test-llm').addEventListener('click', testLlmFromUI);
   $('btn-clear-translate').addEventListener('click', () => clearStoredKey('translate'));
   $('btn-clear-llm').addEventListener('click', () => clearStoredKey('llm'));
+  // 桌面设置(托盘/自启):即时生效,不依赖「保存」按钮
+  $('set-autostart').addEventListener('change', saveDesktopSettings);
+  $('set-close-exit').addEventListener('change', saveDesktopSettings);
 
   await refreshData();
   pollStatus();
@@ -816,6 +819,17 @@ async function loadSettingsState() {
   const st = await api('/api/settings');
   S.settings = st;
 
+  // 桌面模式:显示「桌面」设置区并填充当前值
+  const desktop = Boolean(S.status?.config?.desktop);
+  $('desktop-section').hidden = !desktop;
+  if (desktop) {
+    try {
+      const ds = await api('/api/desktop-settings');
+      $('set-autostart').checked = Boolean(ds.autostart);
+      $('set-close-exit').checked = Boolean(ds.closeToExit);
+    } catch { /* 保持默认值 */ }
+  }
+
   const tk = $('set-translate-key');
   tk.value = '';
   tk.placeholder = st.translate.maskedKey
@@ -889,6 +903,23 @@ function setStatusLine(id, html, cls) {
   const el = $(id);
   el.className = 'status-line' + (cls ? ` ${cls}` : '');
   el.innerHTML = html || '';
+}
+
+/** 桌面设置(开机自启 / 关闭即退出):写入后端即时生效 */
+async function saveDesktopSettings() {
+  try {
+    await api('/api/desktop-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        autostart: $('set-autostart').checked,
+        closeToExit: $('set-close-exit').checked,
+      }),
+    });
+    toast('桌面设置已生效');
+  } catch (err) {
+    toast(`桌面设置保存失败:${err.message}`, true);
+  }
 }
 
 function currentLlmFields() {

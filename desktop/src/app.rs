@@ -12,6 +12,7 @@ use crate::scanner::{self, Entity};
 use crate::util::now_iso;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -27,6 +28,45 @@ pub struct App {
     pub presets: Value,
     pub analyzer: AnalyzerState,
     pub port: std::sync::atomic::AtomicU16,
+    /// 桌面(Tauri 窗口)模式标记;--serve 模式为 false
+    pub desktop: bool,
+    /// 桌面设置:{ autostart, closeToExit }——同步锁,关窗事件(同步上下文)也要读
+    pub desktop_settings: std::sync::RwLock<Value>,
+    /// Tauri 句柄(窗口模式 setup 时注入,用于应用开机自启等)
+    pub tauri_handle: std::sync::OnceLock<tauri::AppHandle>,
+}
+
+impl App {
+    pub fn desktop_settings_file(&self) -> PathBuf {
+        self.config.data_dir.join("desktop.json")
+    }
+
+    pub fn read_desktop_settings(&self) -> Value {
+        self.desktop_settings.read().expect("desktop settings lock").clone()
+    }
+
+    pub fn desktop_close_to_exit(&self) -> bool {
+        self.read_desktop_settings()
+            .get("closeToExit")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+    }
+
+    /// 更新桌面设置并落盘;返回最新值
+    pub fn apply_desktop_settings(&self, patch: &Value) -> Value {
+        let mut settings = self.desktop_settings.write().expect("desktop settings lock");
+        if let Some(obj) = settings.as_object_mut() {
+            if let Some(p) = patch.as_object() {
+                for k in ["autostart", "closeToExit"] {
+                    if let Some(v) = p.get(k).filter(|v| v.is_boolean()) {
+                        obj.insert(k.to_string(), v.clone());
+                    }
+                }
+            }
+        }
+        let _ = crate::util::write_json_atomic(&self.config.data_dir.join("desktop.json"), &settings);
+        settings.clone()
+    }
 }
 
 #[derive(Default)]

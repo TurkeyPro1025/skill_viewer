@@ -22,7 +22,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// 构建应用状态(配置 → 缓存目录 → 凭据 → provider → 管线)。
-pub async fn build_app(mut cfg: config::Config) -> Arc<App> {
+pub async fn build_app(mut cfg: config::Config, desktop: bool) -> Arc<App> {
     if cfg.data_dir.as_os_str().is_empty() {
         cfg.data_dir = desktop_data_dir();
     }
@@ -42,6 +42,10 @@ pub async fn build_app(mut cfg: config::Config) -> Arc<App> {
     let provider = Arc::new(uapipro::UApiProProvider::new(cfg.translate.clone()));
     let pipeline = Arc::new(pipeline::Pipeline::new(provider.clone(), cfg.data_dir.clone()));
 
+    // 桌面设置:默认 关窗最小化到托盘、不开机自启
+    let desktop_settings = crate::util::read_json_if_exists(&cfg.data_dir.join("desktop.json"))
+        .unwrap_or_else(|| serde_json::json!({ "autostart": false, "closeToExit": false }));
+
     Arc::new(App {
         config: cfg,
         cache,
@@ -53,6 +57,9 @@ pub async fn build_app(mut cfg: config::Config) -> Arc<App> {
         presets,
         analyzer: Default::default(),
         port: AtomicU16::new(0),
+        desktop,
+        desktop_settings: std::sync::RwLock::new(desktop_settings),
+        tauri_handle: std::sync::OnceLock::new(),
     })
 }
 
@@ -108,7 +115,7 @@ pub fn run() {
             .expect("build tokio runtime");
         let handle = rt.handle().clone();
         rt.block_on(async move {
-            let app = build_app(cfg).await;
+            let app = build_app(cfg, false).await;
             let port = spawn_server(handle, app, port);
             println!("LISTENING 127.0.0.1:{port}");
         });
@@ -127,6 +134,8 @@ pub fn run() {
     if let Some(p) = flag_value(&args, "--port").and_then(|v| v.parse().ok()) {
         cfg.port = p;
     }
+    // 开机自启带 --hidden:登录后静默驻留托盘
+    let start_hidden = args.iter().any(|a| a == "--hidden");
 
     let rt = Arc::new(
         tokio::runtime::Builder::new_multi_thread()
@@ -136,9 +145,24 @@ pub fn run() {
     );
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            // 二次启动:聚焦已有窗口
+            use tauri::Manager;
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
         .setup(move |tauri_app| {
+            use tauri::Manager;
+
             let handle = rt.handle().clone();
-            let app_state = handle.block_on(build_app(cfg));
+            let app_state = handle.block_on(build_app(cfg, true));
+            tauri_app.manage(app_state.clone());
             let has_index = app_state.cache.read_index().is_some();
             let port = spawn_server(handle.clone(), app_state.clone(), 0);
             eprintln!("[desktop] http://127.0.0.1:{port}/");
@@ -150,15 +174,96 @@ pub fn run() {
                 state.run_analysis(trigger).await;
             });
 
+            // 桌面设置:按已存状态应用开机自启
+            let _ = app_state.tauri_handle.set(tauri_app.handle().clone());
+            apply_autostart(tauri_app.handle(), &app_state.read_desktop_settings());
+
+            // 主窗口(指向本地服务)
             let url: tauri::Url = format!("http://127.0.0.1:{port}/").parse().expect("valid url");
-            tauri::WebviewWindowBuilder::new(tauri_app, "main", tauri::WebviewUrl::External(url))
+            let window = tauri::WebviewWindowBuilder::new(tauri_app, "main", tauri::WebviewUrl::External(url))
                 .title("Skill 全览 · 本地知识库")
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(920.0, 600.0)
+                .visible(!start_hidden)
                 .build()?;
-            let _rt = rt; // 保持 runtime 存活
+
+            // 托盘:显示 / 退出
+            use tauri::menu::{MenuBuilder, MenuItemBuilder};
+            use tauri::tray::{TrayIconBuilder, TrayIconEvent};
+            let show_item = MenuItemBuilder::with_id("show", "显示 Skill 全览").build(tauri_app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", "退出").build(tauri_app)?;
+            let menu = MenuBuilder::new(tauri_app).item(&show_item).separator().item(&quit_item).build()?;
+            let tray = TrayIconBuilder::with_id("main-tray")
+                .tooltip("Skill 全览 · 本地知识库")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .build(tauri_app)?;
+            if let Some(icon) = tauri_app.default_window_icon() {
+                tray.set_icon(Some(icon.clone()))?;
+            }
+            tray.on_tray_icon_event(|tray, event| {
+                if let TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, button_state: tauri::tray::MouseButtonState::Up, .. } = event {
+                    if let Some(w) = tray.app_handle().get_webview_window("main") {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                }
+            });
+
+            let _ = window;
+            // runtime 必须活过 setup 闭包:闭返回时局部变量会被 drop,
+            // 连带杀死 axum 服务与分析任务。桌面进程整个生命周期都需要它,故显式泄漏。
+            std::mem::forget(rt);
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            use tauri::Manager;
+            match event.id.as_ref() {
+                "show" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                }
+                "quit" => app.exit(0),
+                _ => {}
+            }
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                use tauri::Manager;
+                // 默认关窗 = 最小化到托盘;设置"关闭即退出"后才真正退出
+                let app_state = window.app_handle().try_state::<Arc<App>>();
+                let close_to_exit = app_state
+                    .map(|s| s.desktop_close_to_exit())
+                    .unwrap_or(false);
+                if !close_to_exit {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// 按 desktop.json 应用/取消开机自启(仅窗口模式有效)
+pub fn apply_autostart(handle: &tauri::AppHandle, settings: &serde_json::Value) {
+    use tauri_plugin_autostart::ManagerExt;
+    let want = settings.get("autostart").and_then(|v| v.as_bool()).unwrap_or(false);
+    let autolaunch = handle.autolaunch();
+    let result = if want {
+        if !autolaunch.is_enabled().unwrap_or(false) {
+            autolaunch.enable()
+        } else {
+            Ok(())
+        }
+    } else if autolaunch.is_enabled().unwrap_or(false) {
+        autolaunch.disable()
+    } else {
+        Ok(())
+    };
+    if let Err(err) = result {
+        eprintln!("[desktop] 开机自启设置失败: {err}");
+    }
 }

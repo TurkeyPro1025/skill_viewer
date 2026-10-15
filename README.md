@@ -12,7 +12,7 @@
 - SKILL.md 几乎全是英文,**逐篇阅读很吃力**;
 - 同一技能被 junction/symlink 链到 `.agents` / `.zcode` / `.claude` 等多个工具根目录,**看起来像装了三份**。
 
-skill-viewer 是一个 **Node 单文件本地服务 + 网页 UI**(零 npm 依赖,Node ≥ 20),启动即扫描分析,只读不安装不卸载。
+skill-viewer 是一个 **Node 单文件本地服务 + 网页 UI**(零 npm 依赖,Node ≥ 20),启动即扫描分析,只读不安装不卸载。同时提供 **Tauri 2 桌面版**(Windows,深蓝玻璃拟态 UI,详见下文「桌面版」)。
 
 ## 核心卖点:lock 归属引擎
 
@@ -32,6 +32,7 @@ overrides(手动) → .skill-lock.json → .git remote → frontmatter URL(创�
 - **隐私优先**:首次翻译前明确提示"文档内容将上传 uapis.cn";API key 加密存储(见下),任何文件中都无明文;提示与积分消耗随时可在右上角 ⓘ 回看。
 - **概述与分类**:知名仓库用人工种子中文概述(开箱即有);其余可接任意 OpenAI 兼容 LLM(DeepSeek/GLM…)按统一格式生成;来源归组与分类标签是两套独立数据;LLM 未配置时优雅降级为原文描述。
 - **手动整理**:多选技能归入任意仓库或"未知来源",一键确认 LLM 推断;重新分析永不覆盖手动结果。
+- **深蓝玻璃拟态 UI**:Win11 Mica 风格双主题(跟随系统,可手动切深/浅),紧凑密度、键盘导航(j/k 移动、Enter 打开、`/` 聚焦搜索、查看器内 `[` `]` 切文档)、文档路径面包屑。
 
 ## 快速开始
 
@@ -62,11 +63,30 @@ node server.js
 node server.js --port 4763 --host 127.0.0.1 --config config.json --no-scan
 ```
 
+## 桌面版(Tauri 2 · Windows)
+
+`desktop/` 是同一产品的 Tauri 2 桌面版:**前端 `public/` 一份代码双端复用,HTTP API 契约完全一致**;Node 版服务已逐模块移植为 Rust(scanner / 归属瀑布 / 翻译管线 / DPAPI+AES-256-GCM 凭据 / 分析编排),凭据文件格式与 Node 版互通。
+
+```bash
+cd desktop
+npm i                 # 仅装 tauri CLI(构建工具,不进运行时)
+npx tauri build       # 产出 NSIS 安装包 + 单文件 exe
+```
+
+特性:系统托盘常驻(默认关窗最小化到托盘,设置可切「关闭即退出」)、开机自启(登录后 `--hidden` 静默驻留)、单实例(二次启动聚焦已有窗口)、数据目录 `%APPDATA%\skill-viewer`。桌面专属设置在网页 ⚙ 设置的「桌面」区,走本机 HTTP API(`/api/desktop-settings`)。
+
+无窗口服务模式(测试/高级用法):`skill-viewer.exe --serve [--port N] [--config config.json]`,不自动分析。
+
 ## 测试
 
 ```bash
-npm test    # node --test,fixture 技能树 + stub provider,不打真网、不需要任何真实 key
+npm test                              # node --test,fixture 技能树 + stub provider,不打真网、不需要任何真实 key
+# 同一套 28 项黑盒测试驱动 Rust 实现(spawn desktop --serve):
+cd desktop && cargo build
+cd .. && SKILL_VIEWER_TEST_IMPL=rust npm test
 ```
+
+Node 版始终保留作为回退线;两种实现的凭据/缓存文件格式互通(测试里 Node 预写加密密钥、Rust 直接解密使用)。
 
 ## 配置说明
 
@@ -92,7 +112,7 @@ npm test    # node --test,fixture 技能树 + stub provider,不打真网、不�
 
 ## 范围(v1 不做)
 
-安装/卸载/同步管理、桌面打包(架构上已为 Tauri sidecar 留门:UI 与服务只经 HTTP JSON API 通信)、插件缓存技能展示、英中以外语言对。
+安装/卸载/同步管理、插件缓存技能展示、英中以外语言对。(桌面打包已完成,见「桌面版」。)
 
 ## English intro
 
@@ -102,7 +122,8 @@ npm test    # node --test,fixture 技能树 + stub provider,不打真网、不�
 - **Attribution engine (the headline feature)**: maps every skill back to its source repo via a waterfall — installer lock file (`.skill-lock.json`) → `.git` remote → frontmatter URL (labelled "creative upstream") → optional LLM inference → manual grouping (highest priority). Registry-based, easy to extend with new manifest formats.
 - Bilingual reading: block-aligned English/Chinese side-by-side with code, commands, URLs and paths protected by placeholders; Chinese originals render single-column untranslated.
 - Credit-friendly: batched multi-block calls, 4-QPS throttling, lazy translation for attached docs, and content-hash incremental caching — unchanged documents never hit the API again.
-- Privacy-first: explicit consent before any document leaves your machine; API keys live only in environment variables.
+- Privacy-first: explicit consent before any document leaves your machine; API keys are stored encrypted (OS credential store + AES-256-GCM).
+- Desktop edition: a Tauri 2 build ships the same UI and an HTTP-API-compatible Rust port of the service, with tray, autostart and an NSIS installer — one `public/` frontend serves both editions.
 
 Run `node server.js` and open http://127.0.0.1:4763. See [CONTRIBUTING.md](CONTRIBUTING.md) for the two extension points (manifest recognizers & providers).
 
