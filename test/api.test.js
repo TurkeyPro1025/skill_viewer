@@ -11,6 +11,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { spawn } = require('node:child_process');
 
 const { buildFixtures, createFakeUApiPro, createFakeLlm } = require('./helpers');
 const { loadConfig } = require('../lib/config');
@@ -26,6 +27,17 @@ const { createEngine } = require('../lib/attribution/engine');
 const lockReader = require('../lib/attribution/recognizers/lock-reader');
 const presets = require('../lib/llm/presets.json');
 
+/* ---------- 实现选择:node(默认)| rust(desktop Tauri 版) ----------
+   同一套 28 项黑盒测试驱动两种实现:
+   - node:进程内 createApp(回退线,始终保留)
+   - rust:spawn desktop 的 --serve 模式,密钥经与 Node 完全相同的
+     加密存储格式(providers.json + credentials.enc/.masterkey)预置 */
+const IMPL = process.env.SKILL_VIEWER_TEST_IMPL === 'rust' ? 'rust' : 'node';
+const RUST_BIN = process.env.SKILL_VIEWER_RUST_BIN
+  || [path.join(__dirname, '..', 'desktop', 'target', 'release', 'skill-viewer-desktop.exe'),
+      path.join(__dirname, '..', 'desktop', 'target', 'debug', 'skill-viewer-desktop.exe')]
+    .find((p) => fs.existsSync(p));
+
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-viewer-test-'));
 const FIXTURES = path.join(TMP, 'fixtures');
 const DATA = path.join(TMP, 'data');
@@ -35,6 +47,12 @@ const ctx = {};
 /* ---------- 基建 ---------- */
 
 async function startApp({ dataDir = DATA, llmEnv = true, translateEnv = true } = {}) {
+  if (IMPL === 'rust') return startRustApp({ dataDir, llmEnv, translateEnv });
+  return startNodeApp({ dataDir, llmEnv, translateEnv });
+}
+
+/** Node 实现:进程内装配(回退线) */
+async function startNodeApp({ dataDir, llmEnv, translateEnv }) {
   const llmPort = ctx.llmPort;
   const cfg = loadConfig(path.join(TMP, 'config.json'));
   cfg.dataDir = dataDir;
@@ -64,6 +82,78 @@ async function startApp({ dataDir = DATA, llmEnv = true, translateEnv = true } =
   const { server } = createApp({ config: cfg, cache, analyzer, pipeline, seeds, credStore, providerSettings, presets });
   const port = await new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address().port)));
   return { server, port, base: `http://127.0.0.1:${port}`, translateProvider, llmProvider };
+}
+
+/** Rust 实现:spawn desktop --serve,密钥用与 Node 相同的落盘格式预置 */
+async function startRustApp({ dataDir, llmEnv, translateEnv }) {
+  assert.ok(RUST_BIN, '未找到 Rust 二进制(先 cargo build)');
+  const dbg = (...a) => { if (process.env.SV_TEST_DEBUG) console.error('[rust-app]', ...a); };
+  dbg('start', dataDir);
+  const configPath = path.join(TMP, `config-${path.basename(dataDir)}.json`);
+  fs.writeFileSync(configPath, JSON.stringify({
+    port: 0,
+    host: '127.0.0.1',
+    roots: ctx.fixtures.roots,
+    lockFiles: [ctx.fixtures.lock],
+    dataDir,
+    seedsFile: path.join(FIXTURES, 'seeds.json'),
+    providers: {
+      translate: {
+        endpoint: `http://127.0.0.1:${ctx.uapiPort}/api/v1/ai/translate`,
+      },
+    },
+  }, null, 2));
+
+  fs.mkdirSync(dataDir, { recursive: true });
+  dbg('seeding creds');
+  const credStore = await createCredentialStore({ dataDir }).init();
+  const providerSettings = createProviderSettings({ dataDir });
+  if (translateEnv) credStore.set('uapipro', 'stub-key');
+  if (llmEnv) {
+    credStore.set('llm', 'stub-llm-key');
+    providerSettings.updateLlm({ preset: 'custom', baseUrl: `http://127.0.0.1:${ctx.llmPort}/v1`, model: 'stub-model' });
+  }
+  dbg('spawning exe');
+
+  const child = spawn(RUST_BIN, ['--serve', '--config', configPath, '--port', '0'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  let stderr = '';
+  child.stderr.on('data', (c) => { stderr += c; });
+  const port = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Rust 服务启动超时。stderr:\n${stderr}`)), 20000);
+    child.stdout.on('data', (chunk) => {
+      const m = /LISTENING 127\.0\.0\.1:(\d+)/.exec(String(chunk));
+      if (m) {
+        clearTimeout(timer);
+        dbg('listening', m[1]);
+        resolve(parseInt(m[1], 10));
+      }
+    });
+    child.on('exit', (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Rust 服务提前退出(code ${code})。stderr:\n${stderr}`));
+    });
+  });
+  dbg('ready on', port);
+  // close(cb):必须以回调形式通知完成(测试的 closeServer 包装用的是 node http 风格)
+  const server = {
+    close: (cb) => {
+      let settled = false;
+      const done = () => { if (!settled) { settled = true; if (cb) cb(); } };
+      child.on('exit', done);
+      child.kill();
+      setTimeout(() => { try { child.kill('SIGKILL'); } catch { /* 已退出 */ } done(); }, 3000);
+    },
+  };
+  return { server, port, base: `http://127.0.0.1:${port}` };
+}
+
+/** provider 是否就绪(HTTP 查询,双实现通用) */
+async function providerConfigured(base, kind) {
+  const st = await get(base, '/api/settings');
+  return Boolean(st.body[kind]?.configured);
 }
 
 /** 关服:先掐 keep-alive 连接,close() 才不会被闲置连接卡住 */
@@ -119,6 +209,7 @@ function skillsByDir(data, dir) {
 
 test.before(async () => {
   const fx = buildFixtures(FIXTURES);
+  ctx.fixtures = fx;
   ctx.uapi = createFakeUApiPro();
   ctx.llm = createFakeLlm();
   ctx.uapiPort = await ctx.uapi.listen();
@@ -179,12 +270,17 @@ test('01 首次分析:frontmatter 解析、平铺列表、缓存索引', async (
 
 test('01 二次启动直接读缓存,不重新扫描也能显示', async () => {
   const app2 = await startApp({ dataDir: path.join(TMP, 'data-cacheboot') });
+  const dbg = (...a) => { if (process.env.SV_TEST_DEBUG) console.error('[t0102]', ...a); };
+  dbg('app2 ready');
   // 直接把主 dataDir 的 index 拷过去,模拟"已有缓存的新进程"
   fs.copyFileSync(path.join(DATA, 'index.json'), path.join(TMP, 'data-cacheboot', 'index.json'));
+  dbg('index copied');
   const res = await get(app2.base, '/api/skills');
+  dbg('got skills', res.status);
   assert.equal(res.status, 200);
   assert.equal(res.body.stats.entities, 7);
   await closeServer(app2.server);
+  dbg('closed');
 });
 
 /* ---------- 02 多根与去重 ---------- */
@@ -229,7 +325,7 @@ test('03 lock 主表:仓库→子技能两级结构、仓库内分组、未归�
   assert.ok(unknownDirs.includes('beta'), 'beta 分岔副本(claudeA,无 .git)在未知来源');
 });
 
-test('03z 扩展点:注册新清单格式识别器不改核心(结构性检查)', () => {
+test('03z 扩展点:注册新清单格式识别器不改核心(结构性检查)', { skip: IMPL === 'rust' ? '白盒结构测试,仅适用于 Node 实现' : false }, () => {
   const engine = createEngine({});
   engine.registerManifestReader(lockReader);
   engine.registerManifestReader({
@@ -731,7 +827,7 @@ test('19 用户刚同意隐私时不启动全量预翻(避免与当前文档抢�
 test('17 存储密钥端到端:无环境变量时 LLM 概述与翻译均走加密存储', async () => {
   const app2 = await startApp({ dataDir: path.join(TMP, 'data-storeonly'), llmEnv: false, translateEnv: false });
   try {
-    assert.equal(app2.llmProvider.configured(), false, '初始未配置');
+    assert.equal(await providerConfigured(app2.base, 'llm'), false, '初始未配置');
     const save = await post(app2.base, '/api/settings/providers', {
       translate: { apiKey: 'stub-key' },
       llm: { preset: 'custom', baseUrl: `http://127.0.0.1:${ctx.llmPort}/v1`, model: 'stub-model', apiKey: 'stub-llm-key' },
@@ -739,8 +835,8 @@ test('17 存储密钥端到端:无环境变量时 LLM 概述与翻译均走加�
     assert.equal(save.body.analysisStarted, true, '配置完成自动触发分析');
     await runAnalysis(app2.base);
 
-    assert.equal(app2.llmProvider.configured(), true, '存储密钥让 LLM 就绪');
-    assert.equal(app2.translateProvider.configured(), true, '存储密钥让翻译就绪');
+    assert.equal(await providerConfigured(app2.base, 'llm'), true, '存储密钥让 LLM 就绪');
+    assert.equal(await providerConfigured(app2.base, 'translate'), true, '存储密钥让翻译就绪');
 
     const data = (await get(app2.base, '/api/skills')).body;
     const delta = data.skills.find((s) => s.dirName === 'delta');
