@@ -273,11 +273,7 @@ fn card_of(e: &Value, pending: &Map<String, Value>) -> Value {
 }
 
 fn grouped_skills(idx: &Value, seeds: &Value) -> Vec<Value> {
-    let pending: Map<String, Value> = idx
-        .get("lastInference")
-        .and_then(|v| v.as_object())
-        .cloned()
-        .unwrap_or_default();
+    let pending = last_inference_map(Some(idx));
     let mut group_order: Vec<String> = Vec::new();
     let mut groups: HashMap<String, (u64, Option<String>, Vec<(Option<String>, Vec<Value>)>)> = HashMap::new();
     if let Some(entities) = idx.get("entities").and_then(|v| v.as_array()) {
@@ -365,15 +361,19 @@ fn grouped_skills(idx: &Value, seeds: &Value) -> Vec<Value> {
     result
 }
 
+/** 索引里的 lastInference → pendingInference 查找表 */
+fn last_inference_map(idx: Option<&Value>) -> Map<String, Value> {
+    idx.and_then(|i| i.get("lastInference"))
+        .and_then(|v| v.as_object())
+        .cloned()
+        .unwrap_or_default()
+}
+
 async fn skills_list(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Response {
     let Some(idx) = app.cache.read_index() else {
         return err_json("no_index", "尚未完成首次分析", StatusCode::SERVICE_UNAVAILABLE);
     };
-    let pending: Map<String, Value> = idx
-        .get("lastInference")
-        .and_then(|v| v.as_object())
-        .cloned()
-        .unwrap_or_default();
+    let pending = last_inference_map(Some(&idx));
     let cards: Vec<Value> = idx
         .get("entities")
         .and_then(|v| v.as_array())
@@ -428,11 +428,7 @@ async fn skill_detail(axum::extract::State(app): axum::extract::State<Arc<App>>,
         return err_json("not_found", "技能不存在", StatusCode::NOT_FOUND);
     };
     let idx = app.cache.read_index();
-    let pending: Map<String, Value> = idx
-        .as_ref()
-        .and_then(|i| i.get("lastInference").and_then(|v| v.as_object()))
-        .cloned()
-        .unwrap_or_default();
+    let pending = last_inference_map(idx.as_ref());
     let mut card = card_of(&e, &Map::new());
     let real_path = e.get("realPath").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     // 重新读 SKILL.md frontmatter(详情页展示)

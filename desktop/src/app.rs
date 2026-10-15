@@ -176,15 +176,8 @@ fn enrich_body_preview(e: &mut Entity) {
         Ok(r) => r,
         Err(_) => return,
     };
-    let fm_end = raw[3.min(raw.len())..].find("---").map(|i| i + 3.min(raw.len()));
-    let body = match fm_end {
-        Some(fe) if fe > 0 => match raw[fe..].find('\n') {
-            Some(nl) => &raw[fe + nl + 1..],
-            None => raw.as_str(),
-        },
-        _ => raw.as_str(),
-    };
-    e.body_preview = body.chars().take(4000).collect();
+    let fm = crate::frontmatter::parse_frontmatter(&raw);
+    e.body_preview = fm.body.chars().take(4000).collect();
 }
 
 async fn analyze(app: &App, trigger: &str) -> Value {

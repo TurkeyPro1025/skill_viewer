@@ -44,17 +44,25 @@ module.exports = {
 
 - 实现 `configured()` 与 `translateText(text) → { text, credits }`(单次调用 ≤ 10k 字符由调用方保证);
 - 节流/限速建议在 provider 内部实现(参考 `createThrottle`);
-- 在 `lib/config.js` 的 DEFAULTS 与 `config.example.json` 里补默认配置,**API key 只能走环境变量**。
+- 在 `lib/config.js` 的 DEFAULTS 与 `config.example.json` 里补默认配置,**API key 只能走网页设置页的加密存储**。
 
 **LLM provider**(接口见 `lib/llm/provider.js`):OpenAI 兼容已覆盖 DeepSeek/GLM/通义等大多数服务;新协议实现 `chat(messages)` 与 `chatJson(messages)` 即可被概述生成与归属推断两条链路复用。
 
 其他约定:
 
-- UI 与服务之间**只通过 HTTP JSON API 通信**(给未来的桌面壳留门),前端保持零构建、零 CDN 依赖。
-- **密钥安全**(`lib/credentials.js`):网页设置页保存的 API key 经 OS 凭据库主密钥 + AES-256-GCM 加密落盘;新增任何需要密钥的 provider 时,密钥读取必须走"环境变量 → 加密存储"链,严禁明文落盘或明文回传 API;状态变更端点必须经过同源校验。
+- UI 与服务之间**只通过 HTTP JSON API 通信**(Node 版与桌面壳共用同一前端),前端保持零构建、零 CDN 依赖。
+- **密钥安全**(`lib/credentials.js` / `desktop/src/credentials.rs`):网页设置页保存的 API key 经 OS 凭据库主密钥 + AES-256-GCM 加密落盘;新增任何需要密钥的 provider 时,密钥读取必须走加密存储,严禁明文落盘或明文回传 API;状态变更端点必须经过同源校验。
+- **双实现同步**:服务层有 Node(`lib/`)与 Rust(`desktop/src/`)两份实现,共享同一 API 契约与缓存/凭据文件格式。改契约或文件格式时**两边都要改**,并跑两套测试(见下);新扩展点先在 Node 侧落地,Rust 侧跟进移植。
 - 中文优先:界面与文档文案用中文,代码注释说明"为什么"。
-- 提交前 `npm test` 全绿;涉及真实外部服务的行为改动,请在 stub 里同步模拟。
+- 提交前 `npm test` 全绿(涉及 Rust 侧再跑 `SKILL_VIEWER_TEST_IMPL=rust npm test`);涉及真实外部服务的行为改动,请在 stub 里同步模拟。
 - 种子概述数据在 `seeds/summaries.json` 维护,不硬编码在代码里;欢迎为更多知名仓库补充人工概述。LLM 预设在 `lib/llm/presets.json`,欢迎补充新服务商。
+
+## 测试
+
+```bash
+npm test                                  # Node 实现(28 项,回退线,始终保留)
+SKILL_VIEWER_TEST_IMPL=rust npm test      # Rust 实现(spawn desktop --serve,27 项 + 1 白盒跳过)
+```
 
 ## UI 手动验收清单
 

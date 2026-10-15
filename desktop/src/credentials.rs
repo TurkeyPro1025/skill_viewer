@@ -1,5 +1,7 @@
-//! 加密凭据存储(与 Node credentials.js 文件格式完全兼容,可互相读取):
-//! 主密钥放 OS 凭据库(Windows DPAPI,存 data/.masterkey),凭据文件 AES-256-GCM 加密。
+//! 加密凭据存储(与 Node credentials.js 文件格式兼容,可互相读取:
+//! Windows DPAPI 主密钥 + AES-256-GCM 凭据文件)。
+//! 注意:非 Windows 的 machine 兜底指纹与 Node 版(含 MAC)不同,
+//! 跨实现仅 Windows/DPAPI 路径保证互通——桌面版 v1 只面向 Windows。
 //! 密钥绝不以明文落盘。
 
 use crate::util;

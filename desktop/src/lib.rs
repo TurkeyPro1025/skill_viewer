@@ -22,15 +22,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// 构建应用状态(配置 → 缓存目录 → 凭据 → provider → 管线)。
-pub async fn build_app(mut cfg: config::Config, desktop: bool) -> Arc<App> {
-    if cfg.data_dir.as_os_str().is_empty() {
-        cfg.data_dir = desktop_data_dir();
-    }
+pub async fn build_app(cfg: config::Config, desktop: bool) -> Arc<App> {
     let cache = cache::Cache::new(&cfg.data_dir);
     cache.ensure_dirs();
 
+    // 种子:配置文件 → 仓库根目录 → 内嵌(安装包分发场景,保证开箱即有概述)
     let seeds = crate::util::read_json_if_exists(&cfg.seeds_file)
         .or_else(|| crate::util::read_json_if_exists(&PathBuf::from("seeds/summaries.json")))
+        .or_else(|| serde_json::from_str(include_str!("../../seeds/summaries.json")).ok())
         .unwrap_or_else(|| serde_json::json!({ "sources": {} }));
     let presets: serde_json::Value = serde_json::from_str(include_str!("../../lib/llm/presets.json"))
         .unwrap_or_else(|_| serde_json::json!({ "presets": [] }));

@@ -24,11 +24,6 @@ pub struct Pipeline {
     inflight: Mutex<std::collections::HashSet<String>>,
 }
 
-/// 翻译结果(API 直接返回给前端的结构)
-pub struct TranslationOutput {
-    pub value: Value,
-}
-
 impl Pipeline {
     pub fn new(provider: Arc<UApiProProvider>, cache_dir: PathBuf) -> Self {
         Self { provider, cache_dir, inflight: Mutex::new(std::collections::HashSet::new()) }
@@ -38,7 +33,7 @@ impl Pipeline {
         self.cache_dir.join("translations").join(skill_id).join(format!("{doc_hash}.json"))
     }
 
-    fn read_cache(&self, skill_id: &str, _doc_rel: &str, doc_hash: &str) -> Option<Value> {
+    fn read_cache(&self, skill_id: &str, doc_hash: &str) -> Option<Value> {
         let hit = read_json_if_exists(&self.cache_file(skill_id, doc_hash))?;
         if hit.get("version").and_then(|v| v.as_i64()) == Some(CACHE_VERSION)
             && hit.get("docHash").and_then(|v| v.as_str()) == Some(doc_hash)
@@ -81,7 +76,7 @@ impl Pipeline {
             }));
         }
 
-        if let Some(cached) = self.read_cache(entity_id, doc_rel_path, &doc_hash) {
+        if let Some(cached) = self.read_cache(entity_id, &doc_hash) {
             let mut out = cached;
             out.as_object_mut().unwrap().insert("cached".into(), Value::Bool(true));
             return Ok(out);
@@ -103,7 +98,7 @@ impl Pipeline {
                 let mut spins = 0;
                 loop {
                     tokio::time::sleep(std::time::Duration::from_millis(60)).await;
-                    if let Some(done) = self.read_cache(entity_id, doc_rel_path, &doc_hash) {
+                    if let Some(done) = self.read_cache(entity_id, &doc_hash) {
                         let mut out = done;
                         out.as_object_mut().unwrap().insert("cached".into(), Value::Bool(true));
                         return Ok(out);
@@ -246,7 +241,7 @@ impl Pipeline {
         let raw = std::fs::read_to_string(entity_real_path.join(doc_rel_path))
             .map_err(|_| PipelineError { code: "doc_unreadable", message: format!("文档不可读: {doc_rel_path}") })?;
         let doc_hash = sha1_hex(&raw);
-        let mut cached = match self.read_cache(entity_id, doc_rel_path, &doc_hash) {
+        let mut cached = match self.read_cache(entity_id, &doc_hash) {
             Some(c) => c,
             None => return self.ensure_translation(entity_id, entity_real_path, doc_rel_path, api_key, consented).await,
         };
