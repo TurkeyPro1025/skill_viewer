@@ -1,0 +1,11 @@
+{
+  "name": "skill-viewer-desktop",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "icon": "node make-icon.js && tauri icon app-icon.png"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

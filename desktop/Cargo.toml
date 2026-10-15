@@ -1,0 +1,28 @@
+[package]
+name = "skill-viewer-desktop"
+version = "0.1.0"
+description = "Skill 全览桌面版:多根扫描、lock 归属、中英对照阅读(深蓝玻璃拟态)"
+authors = ["skill-viewer contributors"]
+license = "MIT"
+edition = "2021"
+rust-version = "1.77"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[features]
+default = []
+# 由 tauri CLI 注入:走自定义协议打包资源
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
