@@ -1,0 +1,35 @@
+{
+  "port": 4763,
+  "host": "127.0.0.1",
+  "roots": [
+    "~/.agents/skills",
+    "~/.zcode/skills",
+    "~/.claude/skills"
+  ],
+  "lockFiles": [
+    "~/.agents/.skill-lock.json"
+  ],
+  "dataDir": "data",
+  "seedsFile": "seeds/summaries.json",
+  "providers": {
+    "translate": {
+      "name": "uapipro",
+      "endpoint": "https://uapis.cn/api/v1/ai/translate",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer ",
+      "targetLang": "zh",
+      "style": "professional",
+      "context": "technical",
+      "preserveFormat": true,
+      "maxCharsPerCall": 10000,
+      "qps": 4,
+      "creditsPerCall": 4,
+      "responseField": "data.translated_text"
+    },
+    "llm": {
+      "name": "openai-compat",
+      "baseUrl": "",
+      "model": ""
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "skill-viewer",
+  "version": "0.1.0",
+  "description": "轻量只读的本地 Skill 知识库:多根扫描、lock 归属引擎、中英对照阅读",
+  "type": "commonjs",
+  "main": "server.js",
+  "bin": {
+    "skill-viewer": "./server.js"
+  },
+  "files": [
+    "server.js",
+    "lib/",
+    "public/",
+    "seeds/",
+    "config.example.json"
+  ],
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "keywords": [
+    "skills",
+    "claude",
+    "agents",
+    "viewer",
+    "translation"
+  ]
+}

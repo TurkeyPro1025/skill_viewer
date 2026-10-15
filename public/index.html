@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill 全览 · 本地知识库</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 34 34" width="34" height="34" role="img">
+            <defs>
+              <linearGradient id="bm-g" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#4f7cf0"/>
+                <stop offset="1" stop-color="#7a4fe0"/>
+              </linearGradient>
+            </defs>
+            <rect width="34" height="34" rx="9" fill="url(#bm-g)"/>
+            <g>
+              <path d="M17 7.5 L26.5 12.2 L17 16.9 L7.5 12.2 Z" fill="#ffffff" fill-opacity="0.95"/>
+              <path d="M8.5 17.2 L17 21.4 L25.5 17.2" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8.5 22 L17 26.2 L25.5 22" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+          </svg>
+        </span>
+        <span class="brand-name">Skill 全览</span>
+        <span class="brand-sub" id="stats-line">加载中…</span>
+      </div>
+      <div class="topbar-actions">
+        <input id="search" class="search" type="search" placeholder="搜索名称 / 描述 / 分类 / 仓库…" autocomplete="off">
+        <button id="btn-update" class="btn" title="重新扫描与分析(增量,内容未变不调 API;此时才会批量预翻译入口文档)"><span class="ic">⟳</span>手动更新</button>
+        <button id="btn-organize" class="btn btn-ghost" title="多选技能,手动归入仓库或确认推断"><span class="ic">☰</span><span id="organize-label">整理归属</span></button>
+        <button id="btn-settings" class="btn btn-ghost" title="配置翻译 / LLM(API key 加密存储)">⚙ 设置</button>
+        <button id="btn-info" class="btn btn-ghost" title="隐私说明 / provider 状态 / 积分">ⓘ</button>
+      </div>
+      <div id="progress-wrap" class="progress-wrap" hidden>
+        <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+        <span id="progress-text" class="progress-text"></span>
+      </div>
+      <div id="selection-bar" class="selection-bar" hidden>
+        <span id="selection-count"></span>
+        <select id="repo-select"></select>
+        <button id="btn-assign" class="btn btn-primary">归入选中仓库</button>
+        <button id="btn-unknown" class="btn">移入未知来源</button>
+        <button id="btn-confirm" class="btn">确认推断</button>
+        <button id="btn-cancel-select" class="btn btn-ghost">取消</button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div id="category-chips" class="chips"></div>
+    </div>
+
+    <main id="main">
+      <section id="groups"></section>
+      <section id="empty-state" class="empty" hidden>
+        <div class="empty-icon">🔍</div>
+        <p>没有匹配的技能</p>
+        <p class="empty-hint" id="empty-hint"></p>
+      </section>
+    </main>
+  </div>
+
+  <!-- 文档查看器 -->
+  <div id="viewer" class="viewer" hidden>
+    <div class="viewer-top">
+      <button id="viewer-close" class="btn btn-ghost">← 返回</button>
+      <div class="viewer-title">
+        <strong id="viewer-skill"></strong>
+        <span id="viewer-path" class="viewer-path"></span>
+      </div>
+      <div class="viewer-meta" id="viewer-meta"></div>
+    </div>
+    <div class="viewer-body">
+      <aside id="viewer-docs" class="viewer-docs"></aside>
+      <div id="viewer-content" class="viewer-content"></div>
+    </div>
+  </div>
+
+  <!-- 隐私同意弹窗 -->
+  <div id="consent-modal" class="modal" hidden>
+    <div class="modal-card">
+      <h2>翻译前请确认</h2>
+      <p>开启中英对照阅读需要把<strong>文档原文内容</strong>发送到外部翻译服务(uapis.cn AI 翻译接口)。</p>
+      <ul>
+        <li>上传内容仅限你所浏览的技能文档正文;</li>
+        <li>该服务按次计积分(当前 4 积分/次),内容未变的文档会被缓存、不会重复调用;</li>
+        <li>代码块、命令、路径、环境变量会先摘出再翻译,不会被改写;</li>
+        <li>可随时在右上角 ⓘ 中查看本提示与积分消耗。</li>
+      </ul>
+      <div class="modal-actions">
+        <button id="consent-accept" class="btn btn-primary">同意并翻译</button>
+        <button id="consent-cancel" class="btn">仅看原文</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置弹窗(API key 加密存储 + LLM 预设 + 连通测试) -->
+  <div id="settings-modal" class="modal" hidden>
+    <div class="modal-card settings-card">
+      <h2>⚙ 设置</h2>
+      <p class="settings-note">API key 保存后以 <strong>OS 凭据库 + AES-256-GCM</strong> 加密落盘,绝不以明文出现;密钥永不回传浏览器明文。</p>
+
+      <section class="settings-section">
+        <h3>翻译服务(UApiPro · 中英对照)</h3>
+        <div class="field-row">
+          <label for="set-translate-key">API key</label>
+          <input id="set-translate-key" type="password" autocomplete="off" placeholder="未配置">
+          <button id="btn-clear-translate" class="link-btn" hidden>清除已存</button>
+        </div>
+        <div class="field-actions">
+          <button id="btn-test-translate" class="btn">测试连通(免费)</button>
+          <button id="btn-test-translate-full" class="btn" title="发送 1 字符真实翻译,结果 100% 确定">完整测试(消耗 4 积分)</button>
+        </div>
+        <div id="test-translate-status" class="status-line"></div>
+      </section>
+
+      <section class="settings-section">
+        <h3>LLM 服务(中文概述 + 归属推断)</h3>
+        <div class="field-row">
+          <label for="llm-preset">预设</label>
+          <select id="llm-preset"></select>
+        </div>
+        <div class="field-row">
+          <label for="llm-baseurl">API 地址</label>
+          <input id="llm-baseurl" type="text" placeholder="https://…/v1">
+        </div>
+        <div class="field-row">
+          <label for="llm-key">API key</label>
+          <input id="llm-key" type="password" autocomplete="off" placeholder="未配置">
+          <button id="btn-clear-llm" class="link-btn" hidden>清除已存</button>
+        </div>
+        <div class="field-actions">
+          <button id="btn-test-llm" class="btn">测试连通</button>
+        </div>
+        <div id="test-llm-status" class="status-line"></div>
+        <div class="field-row">
+          <label for="llm-model-select">模型</label>
+          <select id="llm-model-select"></select>
+          <input id="llm-model-input" type="text" placeholder="输入模型名" hidden>
+        </div>
+      </section>
+
+      <div class="modal-actions">
+        <button id="settings-save" class="btn btn-primary">保存并重新分析</button>
+        <button id="settings-close" class="btn">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 信息面板 -->
+  <div id="info-popover" class="popover" hidden></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

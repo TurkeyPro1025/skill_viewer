@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "note": "人工整理的中文概述种子。sources 按 owner/repo 组织;'*' 为全局兜底(按文件夹名)。概述与分类独立于来源归组,一个技能可挂多个分类。",
+  "sources": {
+    "mattpocock/skills": {
+      "repoSummary": "Matt Pocock 的工程技能全集:规格( grilled spec )→工单(tracer-bullet)→实现→测试→复盘的完整工作流,外加写作、教学与会话管理配套。38 个技能按 engineering / productivity / misc / in-progress 分组。",
+      "skills": {
+        "ask-matt": { "summary": "技能路由器:描述你的处境,它推荐本仓库哪个技能或流程最合适。不确定用哪个 Matt 技能时从这里进。", "categories": ["工程流程"] },
+        "code-review": { "summary": "沿\"标准\"与\"品味\"两轴审查自某个基点(commit/分支/tag/merge-base)以来的全部变更,输出结构化评审意见。", "categories": ["工程流程", "实现与编码"] },
+        "codebase-design": { "summary": "深模块设计的共享词汇表:设计或改进模块接口、寻找加深(deepening)机会、决定什么进公共 API。配合 Ousterhout 的设计理念使用。", "categories": ["工程流程", "领域建模"] },
+        "diagnosing-bugs": { "summary": "硬 bug 与性能回归的诊断循环:建立反馈环→最小化复现→列假设→插桩→修复→回归测试。说\"diagnose\"或\"debug this\"即触发。", "categories": ["调试"] },
+        "domain-modeling": { "summary": "构建并锐化项目的领域模型:维护 GLOSSARY.md 术语表、记录 ADR 架构决策,讨论代码库术语时启用。", "categories": ["领域建模"] },
+        "grill-with-docs": { "summary": "毫不留情的高压访谈打磨方案或设计,同时把达成的共识落成 ADR 与术语表文档——访谈即文档化。", "categories": ["工程流程", "领域建模"] },
+        "implement": { "summary": "按一份 spec 或一组工单实现一段工作,遵守既有测试与代码规范。", "categories": ["实现与编码"] },
+        "implement-spec": { "summary": "接续 /to-spec 与 /to-tickets 的产出到代码实现,用并行子代理加速。", "categories": ["实现与编码"] },
+        "improve-codebase-architecture": { "summary": "扫描代码库寻找模块加深机会,输出可视化 HTML 报告,选定一项后逐条深挖实施。", "categories": ["工程流程", "实现与编码"] },
+        "pr": { "summary": "编写 PR 描述文:把一组变更组织成审阅者友好的 PR body。(创作上游:Humanlayer 的 show-me 技能)", "categories": ["工程流程"] },
+        "prototype": { "summary": "用一次性原型回答设计问题:验证状态模型或逻辑是否顺手,探索后即弃,不污染正式代码。", "categories": ["实现与编码"] },
+        "research": { "summary": "基于高可信原始来源(官方文档/论文/源码)的带引用调研,结论沉淀为仓库内 Markdown 文件。", "categories": ["调研"] },
+        "retro": { "summary": "对一次编码会话做复盘:什么有效、什么该改进,沉淀环境改进建议。", "categories": ["工程流程"] },
+        "setup-matt-pocock-skills": { "summary": "一次性配置仓库以使用本套工程技能:初始化 issue tracker、分诊标签词汇与文档目录布局。", "categories": ["项目配置"] },
+        "tdd": { "summary": "测试驱动开发:红-绿-重构循环,提到 red-green-refactor 或要求集成测试时启用。", "categories": ["测试", "实现与编码"] },
+        "to-spec": { "summary": "把当前会话综合成一份 spec 并发布到项目 issue tracker——不做访谈,只做已有讨论的合成。", "categories": ["规格与工单"] },
+        "to-tickets": { "summary": "把方案/规格/会话拆成一组 tracer-bullet 工单,每张声明自己的阻塞边,发布到配置的 tracker。", "categories": ["规格与工单"] },
+        "triage": { "summary": "issue 与外部 PR 的分诊状态机:归类、验证可复现、必要时深挖,产出代理可直接执行的简报。", "categories": ["工程流程"] },
+        "wayfinder": { "summary": "把超出单个会话容量的大块工作规划成 issue tracker 上的决策工单共享地图,一次解决一张。", "categories": ["规格与工单", "工程流程"] },
+        "wizard": { "summary": "生成交互式 bash 向导,带你逐步完成只有本人能做的操作:开通服务、配置密钥、提供凭据等。", "categories": ["项目配置"] },
+        "chief-of-staff": { "summary": "在单个会话内协调多个子代理推进一个长期目标,自己当参谋长分派与汇总。", "categories": ["会话管理"] },
+        "claude-handoff": { "summary": "把当前对话无缝移交给一个全新的后台代理,新代理立刻接手继续干活。", "categories": ["会话管理"] },
+        "loop-me": { "summary": "围绕你想在这个工作区构建的工作流反复深挖规格,直到说清楚为止。", "categories": ["规格与工单"] },
+        "setup-ts-deep-modules": { "summary": "接入 dependency-cruiser 让 TypeScript 仓库的每个包都成为深模块:实现藏进子目录,只经公共入口访问。", "categories": ["项目配置", "前端开发"] },
+        "writing-beats": { "summary": "写作展开:把原始素材组织成\"节拍\"(beats)的旅程,每个术语在节拍依赖它之前先落地。", "categories": ["写作"] },
+        "writing-fragments": { "summary": "写作探索:只管挖掘原始碎片,先不谈结构,为后续 beats/shape 积攒原料。", "categories": ["写作"] },
+        "writing-shape": { "summary": "写作成形:把原始素材逐段塑造成一篇完整文章。", "categories": ["写作"] },
+        "git-guardrails-claude-code": { "summary": "配置 Claude Code hooks,在危险 git 命令(push、reset --hard、clean、branch -D 等)执行前拦下确认。", "categories": ["项目配置"] },
+        "migrate-to-shoehorn": { "summary": "把测试文件里的 as 类型断言批量迁移到 @total-typescript/shoehorn。", "categories": ["实现与编码", "测试"] },
+        "scaffold-exercises": { "summary": "创建练习目录结构:分节、问题、解答、讲解文本,全部通过 lint 检查。", "categories": ["教学材料"] },
+        "setup-pre-commit": { "summary": "为当前仓库配置 Husky pre-commit 钩子:lint-staged(Prettier)、类型检查与测试。", "categories": ["项目配置"] },
+        "grill-me": { "summary": "一场毫不留情的访谈,穷追猛打地打磨你的计划或设计。", "categories": ["沟通模式"] },
+        "grilling": { "summary": "高压追问模式:压力测试你的计划、决策或想法,任何 grill 触发词都可用。", "categories": ["沟通模式"] },
+        "handoff": { "summary": "把当前会话压缩成一份交接文档,让下一个代理(或明天的你)无缝接手。", "categories": ["会话管理"] },
+        "teach": { "summary": "在当前工作区内教会你一项新技能或概念,结合你的真实代码讲解。", "categories": ["教学材料"] },
+        "to-questionnaire": { "summary": "把你没法独立回答的决策转成一份给别人填的问卷,把缺口变成问题。", "categories": ["沟通模式", "规格与工单"] },
+        "wait-what": { "summary": "\"停,刚才那条没讲明白\"——让模型换个方式重新表述上一条消息。", "categories": ["沟通模式"] },
+        "writing-for-agents": { "summary": "为代理写文档:编写或修改 skills、AGENTS.md、CLAUDE.md,让下一次调用更准。", "categories": ["写作"] }
+      }
+    },
+    "nextlevelbuilder/ui-ux-pro-max-skill": {
+      "repoSummary": "UI/UX 设计智能引擎七件套:主引擎内置本地可搜索的设计数据库(风格/配色/字体/UX 准则/图标/动效/图表/技术栈),配套设计系统、品牌、横幅、演示文稿技能。纯 Python 标准库数据,无网络调用。",
+      "skills": {
+        "ui-ux-pro-max": { "summary": "UI/UX 设计智能引擎主技能:本地可搜索 79 种 UI 风格(50 激活)、192 套配色与推理档案、74 组字体搭配、119 条 UX 准则、105 图标、17 个 GSAP 动效预设、25 种图表、22 个技术栈。设计/构建/审查/修复界面,含无障碍、响应式、排版、配色、图表。", "categories": ["设计智能", "前端开发"] },
+        "design": { "summary": "综合设计技能:品牌识别、设计令牌、UI 样式、Logo 生成(55 种风格,支持 Gemini/Atlas Cloud/MuAPI 等 AI 服务)、企业形象设计。", "categories": ["设计智能", "品牌视觉"] },
+        "design-system": { "summary": "设计令牌架构与组件规范:基础→语义→组件三层令牌、CSS 变量、间距与排版体系,并可生成幻灯片。", "categories": ["设计系统", "前端开发"] },
+        "ui-styling": { "summary": "用 shadcn/ui(Radix UI + Tailwind)、Tailwind 工具类与 canvas 构建美观且可访问的用户界面。", "categories": ["前端开发", "设计系统"] },
+        "brand": { "summary": "品牌工作台:品牌声音、视觉识别、信息框架、资产管理与一致性检查,产出品牌化内容时启用。", "categories": ["品牌视觉"] },
+        "banner-design": { "summary": "横幅与主视觉设计:社交媒体、广告、网站 hero、印刷品,一次给多个艺术方向方案,可接入生成或用户提供的素材。", "categories": ["品牌视觉", "设计智能"] },
+        "slides": { "summary": "策略性 HTML 演示文稿:Chart.js 图表、设计令牌、响应式布局、文案公式与分场景幻灯片策略。", "categories": ["演示文稿"] }
+      }
+    },
+    "vercel-labs/skills": {
+      "repoSummary": "Vercel 官方 skills CLI 的配套技能仓库,同时是 .skill-lock.json 安装清单格式的出处。",
+      "skills": {
+        "find-skills": { "summary": "技能发现与安装助手:问\"怎么做 X\"\"有没有能…的技能\"时,帮你搜索并安装合适的 agent skills。", "categories": ["工程流程"] }
+      }
+    },
+    "alibaba-flyai/flyai-skill": {
+      "repoSummary": "阿里飞猪 FlyAI 技能:自然语言搜索机票、酒店、景点、演唱会与旅行特价。",
+      "skills": {
+        "flyai": { "summary": "用自然语言搜机票、酒店、景点、演出与旅行特价:连接 Fliggy MCP 实时检索与预订。", "categories": ["旅行生活"] }
+      }
+    }
+  }
+}
