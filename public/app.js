@@ -1,6 +1,6 @@
 'use strict';
 
-/* global document, fetch, window, encodeURIComponent, setTimeout */
+/* global document, fetch, window, localStorage, matchMedia, encodeURIComponent, setTimeout */
 
 /* ============ 状态 ============ */
 const S = {
@@ -13,6 +13,7 @@ const S = {
   selection: new Set(),
   viewer: null,        // { skill, docs, doc, translation }
   pollTimer: null,
+  appearance: null,    // { theme: 'auto'|'dark'|'light', density: 'comfortable'|'compact' }
 };
 
 const $ = (id) => document.getElementById(id);
@@ -42,8 +43,89 @@ function toast(msg, isError) {
   toast._t = setTimeout(() => { el.hidden = true; }, 3400);
 }
 
+/* ============ 外观(主题/密度,仅本机 localStorage) ============ */
+const APPEARANCE_KEY = 'skill-viewer:appearance';
+const DEFAULT_APPEARANCE = { theme: 'auto', density: 'comfortable' };
+
+function loadAppearance() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '{}');
+    const theme = ['auto', 'dark', 'light'].includes(saved.theme) ? saved.theme : 'auto';
+    const density = saved.density === 'compact' ? 'compact' : 'comfortable';
+    return { theme, density };
+  } catch {
+    return { ...DEFAULT_APPEARANCE };
+  }
+}
+
+function saveAppearance() {
+  try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(S.appearance)); } catch { /* 隐私模式等场景静默 */ }
+}
+
+function effectiveTheme() {
+  const t = S.appearance?.theme;
+  if (t === 'dark' || t === 'light') return t;
+  return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function applyAppearance() {
+  const root = document.documentElement;
+  if (S.appearance.theme === 'dark' || S.appearance.theme === 'light') root.dataset.theme = S.appearance.theme;
+  else delete root.dataset.theme; // auto:交给 CSS 媒体查询
+  root.dataset.density = S.appearance.density;
+  const btn = $('btn-theme');
+  if (btn) {
+    const eff = effectiveTheme();
+    btn.textContent = eff === 'dark' ? '☾' : '☀';
+    btn.title = eff === 'dark' ? '当前深色,点击切浅色' : '当前浅色,点击切深色';
+  }
+  const themeSel = $('app-theme');
+  if (themeSel) themeSel.value = S.appearance.theme;
+  const densitySel = $('app-density');
+  if (densitySel) densitySel.value = S.appearance.density;
+}
+
+function toggleTheme() {
+  S.appearance.theme = effectiveTheme() === 'dark' ? 'light' : 'dark';
+  saveAppearance();
+  applyAppearance();
+}
+
+/* ============ 键盘导航 ============ */
+function isTypingTarget(e) {
+  const t = e.target;
+  return Boolean(t) && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+}
+
+function moveCardFocus(dir) {
+  const cards = document.querySelectorAll('#groups .card');
+  if (!cards.length) return;
+  const list = [...cards];
+  const idx = list.indexOf(document.activeElement);
+  const next = idx === -1
+    ? (dir > 0 ? list[0] : list[list.length - 1])
+    : list[Math.min(list.length - 1, Math.max(0, idx + dir))];
+  next.focus();
+  next.scrollIntoView({ block: 'nearest' });
+}
+
+/** 查看器内切换文档([ / ]) */
+function switchDoc(delta) {
+  const items = [...document.querySelectorAll('.doc-item')];
+  const idx = items.findIndex((el) => el.classList.contains('on'));
+  const next = items[idx + delta];
+  if (next) next.click();
+}
+
 /* ============ 初始化 ============ */
 async function boot() {
+  S.appearance = loadAppearance();
+  applyAppearance();
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyAppearance);
+  $('btn-theme').addEventListener('click', toggleTheme);
+  $('app-theme').addEventListener('change', () => { S.appearance.theme = $('app-theme').value; saveAppearance(); applyAppearance(); });
+  $('app-density').addEventListener('change', () => { S.appearance.density = $('app-density').value; saveAppearance(); applyAppearance(); });
+
   $('search').addEventListener('input', (e) => { S.q = e.target.value.trim(); renderGroups(); });
   $('btn-update').addEventListener('click', manualUpdate);
   $('btn-organize').addEventListener('click', toggleSelectMode);
@@ -170,6 +252,9 @@ function renderCategories() {
     const chip = document.createElement('span');
     chip.className = 'chip' + (S.cat === c.name ? ' on' : '');
     chip.innerHTML = `${esc(c.name)}<small>${c.count}</small>`;
+    chip.tabIndex = 0;
+    chip.setAttribute('role', 'button');
+    chip.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); } };
     chip.onclick = () => {
       S.cat = S.cat === c.name ? null : c.name; // 单选:再点一次取消
       renderCategories();
@@ -288,6 +373,9 @@ function cardsGrid(cards) {
 function cardEl(card) {
   const el = document.createElement('div');
   el.className = 'card' + (S.selectMode ? ' selecting' : '') + (S.selection.has(card.id) ? ' selected' : '');
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', `打开技能 ${card.name}`);
 
   const badges = [];
   for (const r of card.roots) {
@@ -329,6 +417,9 @@ function cardEl(card) {
     if (S.selection.has(card.id)) S.selection.delete(card.id); else S.selection.add(card.id);
     renderGroups();
     renderSelectionBar();
+  };
+  el.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
   };
   el.onclick = (e) => {
     const cat = e.target.closest('.cat-tag');
@@ -446,6 +537,15 @@ function closeViewer() {
   S.viewer = null;
 }
 
+/** 文档路径 → 面包屑(最后一段高亮) */
+function renderBreadcrumb(docPath) {
+  const parts = String(docPath || '').split('/').filter(Boolean);
+  $('viewer-path').innerHTML = parts.length
+    ? parts.map((p, i) => `<span class="crumb${i === parts.length - 1 ? ' crumb-last' : ''}">${esc(p)}</span>`)
+        .join('<span class="crumb-sep">/</span>')
+    : '';
+}
+
 function renderDocList(detail) {
   const box = $('viewer-docs');
   box.innerHTML = '';
@@ -470,7 +570,7 @@ async function loadDoc(docPath) {
   const v = S.viewer;
   if (!v) return;
   document.querySelectorAll('.doc-item').forEach((el) => el.classList.toggle('on', el.dataset.path === docPath));
-  $('viewer-path').textContent = docPath;
+  renderBreadcrumb(docPath);
   $('viewer-meta').innerHTML = '';
   let doc;
   try {
@@ -514,7 +614,7 @@ async function fetchTranslation({ retry } = {}) {
       setStatusBanner('开启中英对照需要先同意隐私提示。', false);
       showConsent();
     } else if (err.code === 'provider_unconfigured') {
-      setStatusBanner('翻译未配置:设置环境变量 UAPIS_API_KEY 并重启服务后,可开启中英对照阅读。', false);
+      setStatusBanner('翻译未配置:到右上角 ⚙ 设置保存 UApiPro API key 后,即可开启中英对照阅读。', false);
     } else {
       setStatusBanner(`翻译失败:${esc(err.message)} <button class="btn" id="btn-retry-trans">重试</button>`, true);
       $('btn-retry-trans').onclick = () => fetchTranslation({ retry: true });
@@ -720,7 +820,7 @@ async function loadSettingsState() {
   tk.value = '';
   tk.placeholder = st.translate.maskedKey
     ? `已保存:${st.translate.maskedKey}`
-    : '输入 UAPIS_API_KEY(留空 = 不变)';
+    : '输入 API key(留空 = 不变)';
   $('btn-clear-translate').hidden = st.translate.source !== 'store';
 
   const sel = $('llm-preset');
@@ -864,7 +964,7 @@ async function clearStoredKey(which) {
     // 只反映"已无存储密钥"这一事实,不重置用户正在填写的表单
     S.settings = await api('/api/settings');
     if (which === 'translate') {
-      $('set-translate-key').placeholder = '输入 UAPIS_API_KEY(留空 = 不变)';
+      $('set-translate-key').placeholder = '输入 API key(留空 = 不变)';
       $('btn-clear-translate').hidden = true;
     } else {
       $('llm-key').placeholder = '输入 API key(留空 = 不变)';
@@ -979,6 +1079,23 @@ document.addEventListener('keydown', (e) => {
     else if (!$('settings-modal').hidden) $('settings-modal').hidden = true;
     else if (!$('viewer').hidden) closeViewer();
     else if (!$('info-popover').hidden) $('info-popover').hidden = true;
+    return;
+  }
+  if (isTypingTarget(e) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const modalOpen = !$('consent-modal').hidden || !$('settings-modal').hidden;
+  if (modalOpen) return;
+  if (!$('viewer').hidden) {
+    if (e.key === '[') { e.preventDefault(); switchDoc(-1); }
+    else if (e.key === ']') { e.preventDefault(); switchDoc(1); }
+    return;
+  }
+  if (e.key === '/') { e.preventDefault(); $('search').focus(); $('search').select(); return; }
+  if (e.key === 'j' || e.key === 'J') { e.preventDefault(); moveCardFocus(1); return; }
+  if (e.key === 'k' || e.key === 'K') { e.preventDefault(); moveCardFocus(-1); return; }
+  // ↑↓ 仅在卡片已聚焦时接管(roving),不抢页面滚动
+  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && document.activeElement?.classList?.contains('card')) {
+    e.preventDefault();
+    moveCardFocus(e.key === 'ArrowDown' ? 1 : -1);
   }
 });
 

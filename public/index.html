@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Skill 全览 · 本地知识库</title>
   <link rel="stylesheet" href="/style.css">
+  <script>
+    /* 首帧前应用已存外观(主题/密度),避免闪烁 */
+    (function () {
+      try {
+        var a = JSON.parse(localStorage.getItem('skill-viewer:appearance') || '{}');
+        if (a.theme === 'dark' || a.theme === 'light') document.documentElement.dataset.theme = a.theme;
+        if (a.density === 'compact') document.documentElement.dataset.density = a.density;
+      } catch (e) { /* 忽略损坏的本地存储 */ }
+    })();
+  </script>
 </head>
 <body>
   <div id="app">
@@ -33,6 +43,7 @@
         <input id="search" class="search" type="search" placeholder="搜索名称 / 描述 / 分类 / 仓库…" autocomplete="off">
         <button id="btn-update" class="btn" title="重新扫描与分析(增量,内容未变不调 API;此时才会批量预翻译入口文档)"><span class="ic">⟳</span>手动更新</button>
         <button id="btn-organize" class="btn btn-ghost" title="多选技能,手动归入仓库或确认推断"><span class="ic">☰</span><span id="organize-label">整理归属</span></button>
+        <button id="btn-theme" class="btn btn-ghost" title="切换深 / 浅主题">◐</button>
         <button id="btn-settings" class="btn btn-ghost" title="配置翻译 / LLM(API key 加密存储)">⚙ 设置</button>
         <button id="btn-info" class="btn btn-ghost" title="隐私说明 / provider 状态 / 积分">ⓘ</button>
       </div>
@@ -142,6 +153,26 @@
           <select id="llm-model-select"></select>
           <input id="llm-model-input" type="text" placeholder="输入模型名" hidden>
         </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>外观(仅本机生效,即时预览)</h3>
+        <div class="field-row">
+          <label for="app-theme">主题</label>
+          <select id="app-theme">
+            <option value="auto">跟随系统</option>
+            <option value="dark">深色 · 深蓝玻璃</option>
+            <option value="light">浅色</option>
+          </select>
+        </div>
+        <div class="field-row">
+          <label for="app-density">密度</label>
+          <select id="app-density">
+            <option value="comfortable">舒适</option>
+            <option value="compact">紧凑</option>
+          </select>
+        </div>
+        <p class="status-line">键盘:j / k 或 ↑↓ 在卡片间移动,Enter 打开;「/」聚焦搜索;查看器内「[」「]」切换文档。</p>
       </section>
 
       <div class="modal-actions">
