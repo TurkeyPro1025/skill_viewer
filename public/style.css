@@ -207,7 +207,7 @@ body::before {
 
 #app { max-width: 1280px; margin: 0 auto; padding: 0 20px 60px; }
 
-/* ---------- 顶栏(磨砂玻璃) ---------- */
+/* ---------- 顶栏(透明,与页面同源渐隐;玻璃感交给卡片/胶囊等组件) ---------- */
 .topbar {
   position: sticky;
   top: 0;
@@ -218,10 +218,7 @@ body::before {
   gap: 12px;
   margin: 0 -20px;
   padding: 10px 20px 9px;
-  background: var(--chrome);
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(150%);
-  backdrop-filter: blur(var(--blur)) saturate(150%);
-  border-bottom: 1px solid var(--line);
+  background: linear-gradient(var(--bg) 78%, transparent);
 }
 .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
 .brand-mark { display: block; width: 34px; height: 34px; filter: drop-shadow(0 1px 3px rgba(2, 6, 23, 0.28)); }
@@ -480,18 +477,47 @@ body::before {
   backdrop-filter: blur(6px);
 }
 /* 根目录徽章:按工具品牌上特征色(--tool),混入主题墨色保证深浅主题都可读。
-   .agents 缺省走主题强调色;黑白单色品牌(Codex/Cursor)用中性灰。 */
+   .agents 缺省走主题强调色;黑白单色品牌用中性灰;未知工具走冗余色池(root-auto*)。
+   色值来源:两轮子代理调研(Claude/Anthropic、GitHub brand、zed.dev/brand、
+   TDesign 腾讯蓝、DeepSeek Blue、Qwen Violet、Simple Icons 等),未公布者取近似常识色。 */
 .badge-root { --tool: var(--accent); background: color-mix(in srgb, var(--tool) 15%, transparent); color: color-mix(in srgb, var(--tool) 72%, var(--ink)); }
 .badge-root.linked { background: transparent; border-color: color-mix(in srgb, var(--tool) 60%, transparent); }
+/* —— 国际 —— */
 .badge-root.root-claude { --tool: #d97757; }   /* Claude 橙 */
-.badge-root.root-zcode { --tool: #4f7cf0; }    /* ZCode 靛蓝(与应用品牌渐变同源) */
 .badge-root.root-copilot { --tool: #8a50d8; }  /* GitHub Copilot 紫 */
 .badge-root.root-gemini { --tool: #4285f4; }   /* Gemini 蓝 */
 .badge-root.root-windsurf { --tool: #05a28b; } /* Windsurf 青绿 */
 .badge-root.root-opencode { --tool: #f97316; } /* OpenCode 橙 */
 .badge-root.root-crush { --tool: #ff467c; }    /* Charm Crush 品红 */
 .badge-root.root-aider { --tool: #3fb950; }    /* Aider 绿 */
-.badge-root.root-codex, .badge-root.root-cursor { --tool: var(--ink-3); } /* 黑白单色品牌 */
+.badge-root.root-zed { --tool: #084ccf; }      /* Zed 品牌蓝 */
+.badge-root.root-kiro { --tool: #7c3aed; }     /* Kiro 紫 */
+.badge-root.root-roo { --tool: #14b8a6; }      /* Roo Code 青绿(吉祥物) */
+.badge-root.root-continue { --tool: #10b981; } /* Continue 深绿 */
+.badge-root.root-droid, .badge-root.root-factory { --tool: #ff5c00; } /* Factory Droid 橙 */
+.badge-root.root-amp { --tool: #ff6a00; }      /* Amp 橙 */
+/* —— 国内 —— */
+.badge-root.root-zcode { --tool: #4f7cf0; }    /* ZCode 靛蓝(与应用品牌渐变同源) */
+.badge-root.root-zai, .badge-root.root-zhipu, .badge-root.root-codegeex { --tool: #3859ff; } /* 智谱蓝 */
+.badge-root.root-deepseek { --tool: #4d6bfe; } /* DeepSeek Blue */
+.badge-root.root-qwen, .badge-root.root-qoder { --tool: #615ced; } /* Qwen Violet */
+.badge-root.root-codebuddy { --tool: #0052d9; } /* 腾讯 TDesign 蓝 */
+.badge-root.root-comate { --tool: #2932e1; }   /* 百度品牌蓝 */
+.badge-root.root-trae, .badge-root.root-marscode { --tool: #7b5cfa; } /* Trae 紫蓝 */
+/* —— 黑白单色品牌 → 中性灰 —— */
+.badge-root.root-codex, .badge-root.root-cursor, .badge-root.root-goose,
+.badge-root.root-kimi, .badge-root.root-cline { --tool: var(--ink-3); }
+/* —— 冗余色池:非主流 agent 按名称散列轮换(JS 保证同根目录颜色稳定) —— */
+.badge-root.root-auto0 { --tool: #ef5350; }
+.badge-root.root-auto1 { --tool: #f59e0b; }
+.badge-root.root-auto2 { --tool: #eab308; }
+.badge-root.root-auto3 { --tool: #84cc16; }
+.badge-root.root-auto4 { --tool: #0ea5e9; }
+.badge-root.root-auto5 { --tool: #a855f7; }
+.badge-root.root-auto6 { --tool: #f472b6; }
+.badge-root.root-auto7 { --tool: #a1887f; }
+.badge-root.root-auto8 { --tool: #64748b; }
+.badge-root.root-auto9 { --tool: #00bcd4; }
 .badge-infer { background: var(--warn-soft); color: var(--warn-ink); }
 .badge-confirm { background: var(--ok-soft); color: var(--ok); }
 .badge-upstream { background: var(--violet-soft); color: var(--violet); }
@@ -554,10 +580,7 @@ body::before {
   align-items: center;
   gap: 14px;
   padding: 10px 18px;
-  background: var(--chrome);
-  border-bottom: 1px solid var(--line);
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(150%);
-  backdrop-filter: blur(var(--blur)) saturate(150%);
+  background: linear-gradient(var(--bg) 78%, transparent);
 }
 .viewer-title { display: flex; align-items: baseline; gap: 10px; margin-right: auto; min-width: 0; }
 .viewer-path {
@@ -578,11 +601,9 @@ body::before {
 .viewer-docs {
   width: 240px;
   overflow-y: auto;
-  background: var(--chrome);
+  background: transparent;
   border-right: 1px solid var(--line);
   padding: 12px 8px;
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(140%);
-  backdrop-filter: blur(var(--blur)) saturate(140%);
 }
 .doc-item {
   display: block;

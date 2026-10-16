@@ -67,8 +67,30 @@ function applyAppearance() {
   if (densitySel) densitySel.value = S.appearance.density;
 }
 
-/* ============ 键盘导航 ============ */
-function isTypingTarget(e) {
+/* 根目录徽章:已知工具上品牌特征色(CSS .root-<slug> 定义);名单外的
+   非主流 agent 散列到 10 色冗余池(CSS root-auto0..9),同一目录颜色稳定。 */
+const KNOWN_ROOT_SLUGS = new Set([
+  'agents', // 主色调(主题强调色,CSS 缺省)
+  // 国际
+  'claude', 'copilot', 'gemini', 'windsurf', 'opencode', 'crush', 'aider',
+  'zed', 'kiro', 'roo', 'continue', 'droid', 'factory', 'amp',
+  'codex', 'cursor', 'goose', 'kimi', 'cline',
+  // 国内
+  'zcode', 'zai', 'zhipu', 'codegeex', 'deepseek', 'qwen', 'qoder',
+  'codebuddy', 'comate', 'trae', 'marscode',
+]);
+const ROOT_AUTO_COLORS = 10;
+
+function rootBadgeClass(label) {
+  const slug = String(label || '').replace(/^\./, '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  if (!slug) return '';
+  if (KNOWN_ROOT_SLUGS.has(slug)) return ` root-${slug}`;
+  let h = 0;
+  for (const ch of slug) h = (h * 31 + ch.codePointAt(0)) >>> 0;
+  return ` root-auto${h % ROOT_AUTO_COLORS}`;
+}
+
+/* ============ 键盘导航 ============ */function isTypingTarget(e) {
   const t = e.target;
   return Boolean(t) && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
 }
@@ -355,9 +377,7 @@ function cardEl(card) {
 
   const badges = [];
   for (const r of card.roots) {
-    // 按工具根目录上特征色(.agents 用主题色,claude/zcode/copilot 等各配品牌色)
-    const slug = String(r.label || '').replace(/^\./, '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    badges.push(`<span class="badge badge-root${r.linked ? ' linked' : ''} root-${slug}" title="${r.linked ? '链接到该工具根目录' : '实体所在根目录'}">${esc(r.label)}${r.linked ? ' ↗' : ''}</span>`);
+    badges.push(`<span class="badge badge-root${r.linked ? ' linked' : ''}${rootBadgeClass(r.label)}" title="${r.linked ? '链接到该工具根目录' : '实体所在根目录'}">${esc(r.label)}${r.linked ? ' ↗' : ''}</span>`);
   }
   if (card.copyCount > 1) badges.push(`<span class="badge badge-copy" title="内容一致的独立拷贝已合并">${card.copyCount} 份拷贝已合并</span>`);
   const a = card.attribution;
