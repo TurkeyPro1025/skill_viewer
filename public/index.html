@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Skill 全览 · 本地知识库</title>
+  <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="/style.css">
   <script>
-    /* 首帧前应用已存外观(主题/密度),避免闪烁 */
+    /* 首帧前应用外观:主题固定浅色,密度按已存偏好,避免闪烁 */
     (function () {
+      document.documentElement.dataset.theme = 'light';
       try {
         var a = JSON.parse(localStorage.getItem('skill-viewer:appearance') || '{}');
-        if (a.theme === 'dark' || a.theme === 'light') document.documentElement.dataset.theme = a.theme;
         if (a.density === 'compact') document.documentElement.dataset.density = a.density;
       } catch (e) { /* 忽略损坏的本地存储 */ }
     })();
@@ -21,20 +22,7 @@
     <header class="topbar">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 34 34" width="34" height="34" role="img">
-            <defs>
-              <linearGradient id="bm-g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#4f7cf0"/>
-                <stop offset="1" stop-color="#7a4fe0"/>
-              </linearGradient>
-            </defs>
-            <rect width="34" height="34" rx="9" fill="url(#bm-g)"/>
-            <g>
-              <path d="M17 7.5 L26.5 12.2 L17 16.9 L7.5 12.2 Z" fill="#ffffff" fill-opacity="0.95"/>
-              <path d="M8.5 17.2 L17 21.4 L25.5 17.2" fill="none" stroke="#ffffff" stroke-opacity="0.85" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M8.5 22 L17 26.2 L25.5 22" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-            </g>
-          </svg>
+          <img src="/logo.png" alt="" width="34" height="34">
         </span>
         <span class="brand-name">Skill 全览</span>
         <span class="brand-sub" id="stats-line">加载中…</span>
@@ -43,7 +31,6 @@
         <input id="search" class="search" type="search" placeholder="搜索名称 / 描述 / 分类 / 仓库…" autocomplete="off">
         <button id="btn-update" class="btn" title="重新扫描与分析(增量,内容未变不调 API;此时才会批量预翻译入口文档)"><span class="ic">⟳</span>手动更新</button>
         <button id="btn-organize" class="btn btn-ghost" title="多选技能,手动归入仓库或确认推断"><span class="ic">☰</span><span id="organize-label">整理归属</span></button>
-        <button id="btn-theme" class="btn btn-ghost" title="切换深 / 浅主题">◐</button>
         <button id="btn-settings" class="btn btn-ghost" title="配置翻译 / LLM(API key 加密存储)">⚙ 设置</button>
         <button id="btn-info" class="btn btn-ghost" title="隐私说明 / provider 状态 / 积分">ⓘ</button>
       </div>
@@ -157,14 +144,6 @@
 
       <section class="settings-section">
         <h3>外观(仅本机生效,即时预览)</h3>
-        <div class="field-row">
-          <label for="app-theme">主题</label>
-          <select id="app-theme">
-            <option value="auto">跟随系统</option>
-            <option value="dark">深色 · 深蓝玻璃</option>
-            <option value="light">浅色</option>
-          </select>
-        </div>
         <div class="field-row">
           <label for="app-density">密度</label>
           <select id="app-density">

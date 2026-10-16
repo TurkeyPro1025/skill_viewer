@@ -1,6 +1,6 @@
 'use strict';
 
-/* global document, fetch, window, localStorage, matchMedia, encodeURIComponent, setTimeout */
+/* global document, fetch, window, localStorage, encodeURIComponent, setTimeout */
 
 /* ============ 状态 ============ */
 const S = {
@@ -43,18 +43,16 @@ function toast(msg, isError) {
   toast._t = setTimeout(() => { el.hidden = true; }, 3400);
 }
 
-/* ============ 外观(主题/密度,仅本机 localStorage) ============ */
+/* ============ 外观(密度;主题固定浅色,仅本机 localStorage) ============ */
 const APPEARANCE_KEY = 'skill-viewer:appearance';
-const DEFAULT_APPEARANCE = { theme: 'auto', density: 'comfortable' };
 
 function loadAppearance() {
   try {
     const saved = JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '{}');
-    const theme = ['auto', 'dark', 'light'].includes(saved.theme) ? saved.theme : 'auto';
     const density = saved.density === 'compact' ? 'compact' : 'comfortable';
-    return { theme, density };
+    return { density };
   } catch {
-    return { ...DEFAULT_APPEARANCE };
+    return { density: 'comfortable' };
   }
 }
 
@@ -62,33 +60,11 @@ function saveAppearance() {
   try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(S.appearance)); } catch { /* 隐私模式等场景静默 */ }
 }
 
-function effectiveTheme() {
-  const t = S.appearance?.theme;
-  if (t === 'dark' || t === 'light') return t;
-  return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
-
 function applyAppearance() {
-  const root = document.documentElement;
-  if (S.appearance.theme === 'dark' || S.appearance.theme === 'light') root.dataset.theme = S.appearance.theme;
-  else delete root.dataset.theme; // auto:交给 CSS 媒体查询
-  root.dataset.density = S.appearance.density;
-  const btn = $('btn-theme');
-  if (btn) {
-    const eff = effectiveTheme();
-    btn.textContent = eff === 'dark' ? '☾' : '☀';
-    btn.title = eff === 'dark' ? '当前深色,点击切浅色' : '当前浅色,点击切深色';
-  }
-  const themeSel = $('app-theme');
-  if (themeSel) themeSel.value = S.appearance.theme;
+  document.documentElement.dataset.theme = 'light'; // 主题固定浅色
+  document.documentElement.dataset.density = S.appearance.density;
   const densitySel = $('app-density');
   if (densitySel) densitySel.value = S.appearance.density;
-}
-
-function toggleTheme() {
-  S.appearance.theme = effectiveTheme() === 'dark' ? 'light' : 'dark';
-  saveAppearance();
-  applyAppearance();
 }
 
 /* ============ 键盘导航 ============ */
@@ -121,9 +97,6 @@ function switchDoc(delta) {
 async function boot() {
   S.appearance = loadAppearance();
   applyAppearance();
-  matchMedia('(prefers-color-scheme: light)').addEventListener('change', applyAppearance);
-  $('btn-theme').addEventListener('click', toggleTheme);
-  $('app-theme').addEventListener('change', () => { S.appearance.theme = $('app-theme').value; saveAppearance(); applyAppearance(); });
   $('app-density').addEventListener('change', () => { S.appearance.density = $('app-density').value; saveAppearance(); applyAppearance(); });
 
   $('search').addEventListener('input', (e) => { S.q = e.target.value.trim(); renderGroups(); });
@@ -382,7 +355,9 @@ function cardEl(card) {
 
   const badges = [];
   for (const r of card.roots) {
-    badges.push(`<span class="badge ${r.linked ? 'badge-root linked' : 'badge-root'}" title="${r.linked ? '链接到该工具根目录' : '实体所在根目录'}">${esc(r.label)}${r.linked ? ' ↗' : ''}</span>`);
+    // 按工具根目录上特征色(.agents 用主题色,claude/zcode/copilot 等各配品牌色)
+    const slug = String(r.label || '').replace(/^\./, '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    badges.push(`<span class="badge badge-root${r.linked ? ' linked' : ''} root-${slug}" title="${r.linked ? '链接到该工具根目录' : '实体所在根目录'}">${esc(r.label)}${r.linked ? ' ↗' : ''}</span>`);
   }
   if (card.copyCount > 1) badges.push(`<span class="badge badge-copy" title="内容一致的独立拷贝已合并">${card.copyCount} 份拷贝已合并</span>`);
   const a = card.attribution;

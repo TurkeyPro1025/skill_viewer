@@ -224,8 +224,8 @@ body::before {
   border-bottom: 1px solid var(--line);
 }
 .brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
-.brand-mark { display: block; width: 34px; height: 34px; filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.35)); }
-.brand-mark svg { display: block; border-radius: 9px; }
+.brand-mark { display: block; width: 34px; height: 34px; filter: drop-shadow(0 1px 3px rgba(2, 6, 23, 0.28)); }
+.brand-mark svg, .brand-mark img { display: block; width: 34px; height: 34px; border-radius: 9px; object-fit: cover; }
 .brand-name { font-size: 17px; font-weight: 700; letter-spacing: 0.2px; }
 .brand-sub { color: var(--ink-3); font-size: 12px; }
 
@@ -479,8 +479,19 @@ body::before {
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
-.badge-root { background: var(--accent-soft); color: var(--accent-ink); }
-.badge-root.linked { background: transparent; border-color: var(--accent); }
+/* 根目录徽章:按工具品牌上特征色(--tool),混入主题墨色保证深浅主题都可读。
+   .agents 缺省走主题强调色;黑白单色品牌(Codex/Cursor)用中性灰。 */
+.badge-root { --tool: var(--accent); background: color-mix(in srgb, var(--tool) 15%, transparent); color: color-mix(in srgb, var(--tool) 72%, var(--ink)); }
+.badge-root.linked { background: transparent; border-color: color-mix(in srgb, var(--tool) 60%, transparent); }
+.badge-root.root-claude { --tool: #d97757; }   /* Claude 橙 */
+.badge-root.root-zcode { --tool: #4f7cf0; }    /* ZCode 靛蓝(与应用品牌渐变同源) */
+.badge-root.root-copilot { --tool: #8a50d8; }  /* GitHub Copilot 紫 */
+.badge-root.root-gemini { --tool: #4285f4; }   /* Gemini 蓝 */
+.badge-root.root-windsurf { --tool: #05a28b; } /* Windsurf 青绿 */
+.badge-root.root-opencode { --tool: #f97316; } /* OpenCode 橙 */
+.badge-root.root-crush { --tool: #ff467c; }    /* Charm Crush 品红 */
+.badge-root.root-aider { --tool: #3fb950; }    /* Aider 绿 */
+.badge-root.root-codex, .badge-root.root-cursor { --tool: var(--ink-3); } /* 黑白单色品牌 */
 .badge-infer { background: var(--warn-soft); color: var(--warn-ink); }
 .badge-confirm { background: var(--ok-soft); color: var(--ok); }
 .badge-upstream { background: var(--violet-soft); color: var(--violet); }

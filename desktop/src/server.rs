@@ -19,6 +19,7 @@ pub fn router(app: Arc<App>) -> Router {
         .route("/", get(index_route))
         .route("/style.css", get(css_route))
         .route("/app.js", get(js_route))
+        .route("/logo.png", get(logo_route))
         .route("/api/status", get(status))
         .route("/api/skills", get(skills_list))
         .route("/api/categories", get(categories))
@@ -61,6 +62,9 @@ async fn css_route() -> Response {
 async fn js_route() -> Response {
     asset("app.js", "application/javascript; charset=utf-8")
 }
+async fn logo_route() -> Response {
+    asset("logo.png", "image/png")
+}
 
 fn asset(name: &str, mime: &str) -> Response {
     #[cfg(debug_assertions)]
@@ -75,6 +79,7 @@ fn asset(name: &str, mime: &str) -> Response {
         "index.html" => include_bytes!("../../public/index.html"),
         "style.css" => include_bytes!("../../public/style.css"),
         "app.js" => include_bytes!("../../public/app.js"),
+        "logo.png" => include_bytes!("../../public/logo.png"),
         _ => return not_found(),
     };
     ([(header::CONTENT_TYPE, mime.to_string())], body).into_response()
