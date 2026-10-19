@@ -134,6 +134,10 @@ async function boot() {
   $('viewer-close').addEventListener('click', closeViewer);
   $('consent-cancel').addEventListener('click', () => hideConsent(false));
   $('consent-accept').addEventListener('click', () => hideConsent(true));
+  $('revoke-cancel').addEventListener('click', () => { $('revoke-modal').hidden = true; });
+  $('revoke-confirm').addEventListener('click', () => { $('revoke-modal').hidden = true; doRevokeConsent(); });
+  $('unknown-cancel').addEventListener('click', () => { $('unknown-modal').hidden = true; });
+  $('unknown-confirm').addEventListener('click', () => { $('unknown-modal').hidden = true; executeAssign(''); });
   $('btn-settings').addEventListener('click', openSettings);
   $('settings-close').addEventListener('click', () => { $('settings-modal').hidden = true; });
   $('settings-save').addEventListener('click', saveSettings);
@@ -165,7 +169,7 @@ async function refreshData() {
     $('stats-line').hidden = false;
     $('stats-line').textContent = err.code === 'no_index'
       ? '首次分析进行中…'
-      : `加载失败:${err.message}`;
+      : `加载失败：${err.message}`;
     return;
   }
   renderCategories();
@@ -192,9 +196,9 @@ async function manualUpdate() {
   $('btn-update').disabled = true;
   try {
     await api('/api/analyze', { method: 'POST', body: '{}' });
-    toast('已开始重新分析(增量:内容未变不调 API)');
+    toast('已开始重新分析（增量：内容未变不调 API）');
   } catch (err) {
-    toast(`触发失败:${err.message}`, true);
+    toast(`触发失败：${err.message}`, true);
   } finally {
     $('btn-update').disabled = false;
   }
@@ -359,7 +363,7 @@ function renderGroups() {
     $('st-match-n').textContent = visibleTotal;
     $('st-match-label').textContent = `/ ${S.data.stats.entities} 匹配`;
     $('empty-hint').textContent = S.q
-      ? '按 Ctrl+K 回到搜索,试试更短的关键词'
+      ? '按 Ctrl+K 回到搜索，试试更短的关键词'
       : '点击上方高亮的分类胶囊可取消筛选';
   } else {
     $('st-match').hidden = true;
@@ -442,7 +446,7 @@ function cardEl(card) {
   const a = card.attribution;
   if (a) {
     // 创作上游紧随根目录徽章:一行放得下就同行,放不下自然换行
-    if (a.upstream) badges.push(`<span class="badge badge-upstream" title="frontmatter 记录的创作上游(非安装来源)">创作上游:${esc(a.upstream.repo)}</span>`);
+    if (a.upstream) badges.push(`<span class="badge badge-upstream" title="frontmatter 记录的创作上游（非安装来源）">创作上游：${esc(a.upstream.repo)}</span>`);
     if (a.inferred && !a.confirmed) {
       badges.push(`<span class="badge badge-infer">推断${a.confidence ? ' · ' + esc(confZh(a.confidence)) : ''} → ${esc(a.repo)}</span>`);
     } else if (a.inferred && a.confirmed) {
@@ -451,9 +455,9 @@ function cardEl(card) {
     if (a.method === 'overrides') badges.push('<span class="badge badge-confirm" title="手动归组">手动</span>');
   }
   if (card.pendingInference) {
-    badges.push(`<span class="badge badge-infer" title="LLM 推断候选(置信度不够未自动纳入)。到「整理归属」勾选后可一键确认。">推断候选:${esc(card.pendingInference.repo)} · ${esc(confZh(card.pendingInference.confidence))}</span>`);
+    badges.push(`<span class="badge badge-infer" title="LLM 推断候选（置信度不够未自动纳入）。到「整理归属」勾选后可一键确认。">推断候选：${esc(card.pendingInference.repo)} · ${esc(confZh(card.pendingInference.confidence))}</span>`);
   }
-  if (card.forked) badges.push(`<span class="badge badge-fork" title="同名技能内容分岔,作为独立版本展示">变体 · ${esc(card.versionLabel || '')}</span>`);
+  if (card.forked) badges.push(`<span class="badge badge-fork" title="同名技能内容分岔，作为独立版本展示">变体 · ${esc(card.versionLabel || '')}</span>`);
   if (card.entryLanguage === 'zh') badges.push('<span class="badge badge-zh">中文</span>');
 
   const cats = (card.categories || [])
@@ -532,12 +536,19 @@ async function assignSelection(repo) {
   if (!S.selection.size) return toast('先勾选技能卡片', true);
   let target = repo;
   if (repo === '__custom__') {
-    target = window.prompt('目标仓库(owner/repo),留空则移入未知来源:', '');
+    target = window.prompt('目标仓库（owner/repo），留空则移入未知来源：', '');
     if (target === null) return;
     target = target.trim();
-  } else if (!repo && !window.confirm(`把 ${S.selection.size} 个技能移入"未知来源"?`)) {
+  } else if (!repo) {
+    // 移入未知来源:自定义确认弹窗(选中数量在打开时填充,确认后执行 executeAssign)
+    $('unknown-count').textContent = S.selection.size;
+    $('unknown-modal').hidden = false;
     return;
   }
+  return executeAssign(target);
+}
+
+async function executeAssign(target) {
   try {
     await api('/api/overrides', {
       method: 'POST',
@@ -549,7 +560,7 @@ async function assignSelection(repo) {
     renderSelectionBar();
     await refreshData();
   } catch (err) {
-    toast(`归组失败:${err.message}`, true);
+    toast(`归组失败：${err.message}`, true);
   }
 }
 
@@ -566,7 +577,7 @@ async function confirmInference() {
     renderSelectionBar();
     await refreshData();
   } catch (err) {
-    toast(`确认失败:${err.message}`, true);
+    toast(`确认失败：${err.message}`, true);
   }
 }
 
@@ -576,7 +587,7 @@ async function openViewer(skillId, docPath) {
   try {
     detail = await api(`/api/skills/${skillId}`);
   } catch (err) {
-    return toast(`打开失败:${err.message}`, true);
+    return toast(`打开失败：${err.message}`, true);
   }
   S.viewer = { skill: detail, doc: null, translation: null };
   $('viewer').hidden = false;
@@ -616,7 +627,7 @@ function renderDocList(detail) {
   if (detail.copies?.length) {
     const note = document.createElement('div');
     note.style.cssText = 'margin-top:10px;color:var(--ink-3);font-size:11px';
-    note.textContent = `另有 ${detail.copies.length} 份一致拷贝(已合并)`;
+    note.textContent = `另有 ${detail.copies.length} 份一致拷贝（已合并）`;
     box.appendChild(note);
   }
 }
@@ -631,7 +642,7 @@ async function loadDoc(docPath) {
   try {
     doc = await api(`/api/skills/${v.skill.id}/doc?path=${encodeURIComponent(docPath)}`);
   } catch (err) {
-    $('viewer-content').innerHTML = `<div class="doc-note error">文档读取失败:${esc(err.message)}</div>`;
+    $('viewer-content').innerHTML = `<div class="doc-note error">文档读取失败：${esc(err.message)}</div>`;
     return;
   }
   v.doc = doc;
@@ -651,7 +662,7 @@ async function fetchTranslation({ retry } = {}) {
   if (!v) return;
   const action = retry ? 'retry' : 'translate';
   try {
-    setStatusBanner(`<span class="spin"></span>${retry ? '重试失败块' : '翻译中'}…(4 积分/次,内容未变会缓存;长文档自动分块,可能需要数十秒)`);
+    setStatusBanner(`<span class="spin"></span>${retry ? '重试失败块' : '翻译中'}…（4 积分/次，内容未变会缓存；长文档自动分块，可能需要数十秒）`);
     const t = await api(`/api/skills/${v.skill.id}/${action}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -669,9 +680,9 @@ async function fetchTranslation({ retry } = {}) {
       setStatusBanner('开启中英对照需要先同意隐私提示。', false);
       showConsent();
     } else if (err.code === 'provider_unconfigured') {
-      setStatusBanner('翻译未配置:到右上角 ⚙ 设置保存 UApiPro API key 后,即可开启中英对照阅读。', false);
+      setStatusBanner('翻译未配置：到主页右上角 ⚙ 设置保存 UApiPro API key 后，即可开启中英对照阅读。', false);
     } else {
-      setStatusBanner(`翻译失败:${esc(err.message)} <button class="btn" id="btn-retry-trans">重试</button>`, true);
+      setStatusBanner(`翻译失败：${esc(err.message)} <button class="btn" id="btn-retry-trans">重试</button>`, true);
       $('btn-retry-trans').onclick = () => fetchTranslation({ retry: true });
     }
   }
@@ -695,19 +706,57 @@ function showConsent() {
   $('consent-modal').hidden = false;
 }
 
+let consentSaving = false;
+
+/** 查看器内的“暂不翻译”提示:提供稳定的重新同意入口 */
+function showConsentPausedBanner() {
+  if ($('viewer').hidden) return;
+  setStatusBanner('未同意新的翻译请求，已有译文仍可查看。<button class="btn" id="btn-open-consent">开启中英对照</button>', false);
+  $('btn-open-consent').onclick = showConsent;
+}
+
 function hideConsent(accept) {
-  $('consent-modal').hidden = true;
-  if (accept) {
-    api('/api/consent', {
+  if (!accept) {
+    $('consent-modal').hidden = true;
+    showConsentPausedBanner();
+    return;
+  }
+  if (consentSaving) return;
+  consentSaving = true;
+  api('/api/consent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accept: true }),
+  })
+    .then(async () => {
+      consentSaving = false;
+      $('consent-modal').hidden = true;
+      try { S.status = await api('/api/status'); } catch { /* 状态刷新失败不阻塞翻译 */ }
+      if (!$('info-popover').hidden) renderInfo();
+      fetchTranslation();
+    })
+    .catch((err) => {
+      // 保持弹窗开启,让用户可以直接重试,而不是只留一条 toast
+      consentSaving = false;
+      $('consent-modal').hidden = false;
+      toast(`同意失败：${err.message}`, true);
+    });
+}
+
+/** 执行撤回翻译同意(由确认弹窗触发;不发新请求,已缓存译文仍可查看) */
+async function doRevokeConsent() {
+  try {
+    await api('/api/consent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accept: true }),
-    })
-      .then(() => fetchTranslation())
-      .catch((err) => toast(`同意失败:${err.message}`, true));
-  } else {
-    setStatusBanner('未开启翻译,仅展示原文。<button class="btn" id="btn-open-consent">开启中英对照</button>', false);
-    $('btn-open-consent').onclick = showConsent;
+      body: JSON.stringify({ accept: false }),
+    });
+    S.status = await api('/api/status');
+    if (!$('info-popover').hidden) renderInfo();
+    showConsentPausedBanner();
+    toast('已撤回同意，不再发起新的翻译请求');
+  } catch (err) {
+    toast(`撤回失败：${err.message}`, true);
   }
 }
 
@@ -776,11 +825,11 @@ function renderBilingual(doc, translation) {
       } else if (t?.status === 'ok') {
         dstHtml = `<div class="b-dst md">${renderBlockMarkdown({ ...b, markdown: t.translated }, skillId, doc.path)}</div>`;
       } else if (t?.status === 'failed') {
-        dstHtml = `<div class="b-dst failed">⚠ 翻译失败:${esc(t.error || '未知错误')}</div>`;
+        dstHtml = `<div class="b-dst failed">⚠ 翻译失败：${esc(t.error || '未知错误')}</div>`;
       } else if (t?.status === 'pending') {
         dstHtml = '<div class="b-dst pending">翻译中…</div>';
       } else {
-        dstHtml = '<div class="b-dst empty-note">(未翻译)</div>';
+        dstHtml = '<div class="b-dst empty-note">（未翻译）</div>';
       }
       row.innerHTML = `<div class="b-src md">${renderBlockMarkdown(b, skillId, doc.path)}</div>${dstHtml}`;
     }
@@ -887,7 +936,7 @@ async function openSettings() {
   try {
     await loadSettingsState();
   } catch (err) {
-    toast(`设置加载失败:${err.message}`, true);
+    toast(`设置加载失败：${err.message}`, true);
   }
 }
 
@@ -909,8 +958,8 @@ async function loadSettingsState() {
   const tk = $('set-translate-key');
   tk.value = '';
   tk.placeholder = st.translate.maskedKey
-    ? `已保存:${st.translate.maskedKey}`
-    : '输入 API key(留空 = 不变)';
+    ? `已保存：${st.translate.maskedKey}`
+    : '输入 API key（留空 = 不变）';
   $('btn-clear-translate').hidden = st.translate.source !== 'store';
 
   const sel = $('llm-preset');
@@ -922,8 +971,8 @@ async function loadSettingsState() {
   const lk = $('llm-key');
   lk.value = '';
   lk.placeholder = st.llm.maskedKey
-    ? `已保存:${st.llm.maskedKey}`
-    : '输入 API key(留空 = 不变)';
+    ? `已保存：${st.llm.maskedKey}`
+    : '输入 API key（留空 = 不变）';
   $('btn-clear-llm').hidden = st.llm.source !== 'store';
 
   S.savedModelId = st.llm.model || '';
@@ -983,7 +1032,7 @@ function applyPresetSelection(fromUser) {
     // 用户主动切换 → 自动填充预设地址;打开弹窗 → 仅地址为空时补默认,不覆盖已存的中转站地址
     if (fromUser || !bu.value.trim()) bu.value = p.baseUrl;
   } else if (p) {
-    bu.placeholder = 'https://…/v1(OpenAI 兼容,可填中转站地址)';
+    bu.placeholder = 'https://…/v1（OpenAI 兼容，可填中转站地址）';
   }
   // 切服务商 = 候选切到该服务商自己的(拉取过 → 拉取结果整体替换;否则 预设 + 已存);API key 不受影响
   refreshModelOptions();
@@ -1000,7 +1049,7 @@ function renderModelList(show, query) {
   if (!hits.length) {
     const empty = document.createElement('div');
     empty.className = 'model-picker-empty';
-    empty.textContent = S.modelItems.length ? '无匹配模型' : '尚无候选:点上方「测试连通」自动拉取';
+    empty.textContent = S.modelItems.length ? '无匹配模型' : '尚无候选：点上方「测试连通」自动拉取';
     list.appendChild(empty);
   } else {
     for (const it of hits) {
@@ -1067,7 +1116,7 @@ async function saveDesktopSettings() {
     });
     toast('桌面设置已生效');
   } catch (err) {
-    toast(`桌面设置保存失败:${err.message}`, true);
+    toast(`桌面设置保存失败：${err.message}`, true);
   }
 }
 
@@ -1092,8 +1141,8 @@ async function testLlmFromUI() {
       body: JSON.stringify(currentLlmFields()),
     });
     if (r.ok) {
-      const modelsNote = r.models?.length ? `,发现 ${r.models.length} 个模型(下拉已更新)` : '';
-      setStatusLine('test-llm-status', `✓ 连通正常,延迟 ${r.latencyMs} ms${modelsNote}`, 'ok');
+      const modelsNote = r.models?.length ? `，发现 ${r.models.length} 个模型（下拉已更新）` : '';
+      setStatusLine('test-llm-status', `✓ 连通正常，延迟 ${r.latencyMs} ms${modelsNote}`, 'ok');
       if (r.models?.length) {
         // 后端两种返回都归一为 {id,name}:旧版进程返回字符串数组 ['id',…],新版返回 [{id,name}]
         // (常驻服务不热重载,前端必须兼容运行中进程的旧结构,否则 id 取不到、候选被滤空)
@@ -1118,7 +1167,7 @@ async function testLlmFromUI() {
 }
 
 async function testTranslateFromUI(full) {
-  setStatusLine('test-translate-status', `<span class="spin"></span>${full ? '完整测试(消耗 4 积分)' : '测试中'}…`);
+  setStatusLine('test-translate-status', `<span class="spin"></span>${full ? '完整测试（消耗 4 积分）' : '测试中'}…`);
   const btn = full ? $('btn-test-translate-full') : $('btn-test-translate');
   btn.disabled = true;
   try {
@@ -1131,8 +1180,8 @@ async function testTranslateFromUI(full) {
     parts.push(r.reachable ? '服务可达 ✓' : '服务不可达 ✗');
     if (r.keyAccepted === true) parts.push('key 被接受 ✓');
     if (r.keyAccepted === false) parts.push('key 无效 ✗(401)');
-    if (r.full?.ok) parts.push(`真实翻译成功:"${r.full.sample}"`);
-    if (r.full && !r.full.ok) parts.push(`完整测试失败:${r.full.error}`);
+    if (r.full?.ok) parts.push(`真实翻译成功："${r.full.sample}"`);
+    if (r.full && !r.full.ok) parts.push(`完整测试失败：${r.full.error}`);
     if (r.error) parts.push(esc(r.error));
     const ok = r.reachable && r.keyAccepted !== false && !(r.full && !r.full.ok);
     setStatusLine('test-translate-status', parts.join(' · '), ok ? 'ok' : 'err');
@@ -1156,15 +1205,15 @@ async function clearStoredKey(which) {
     // 只反映"已无存储密钥"这一事实,不重置用户正在填写的表单
     S.settings = await api('/api/settings');
     if (which === 'translate') {
-      $('set-translate-key').placeholder = '输入 API key(留空 = 不变)';
+      $('set-translate-key').placeholder = '输入 API key（留空 = 不变）';
       $('btn-clear-translate').hidden = true;
     } else {
-      $('llm-key').placeholder = '输入 API key(留空 = 不变)';
+      $('llm-key').placeholder = '输入 API key（留空 = 不变）';
       $('btn-clear-llm').hidden = true;
     }
     toast('已清除加密存储中的密钥');
   } catch (err) {
-    toast(`清除失败:${err.message}`, true);
+    toast(`清除失败：${err.message}`, true);
   }
 }
 
@@ -1186,10 +1235,10 @@ async function saveSettings() {
       body: JSON.stringify(payload),
     });
     $('settings-modal').hidden = true;
-    toast(r.analysisStarted ? '已保存,正在按新配置增量分析…' : '已保存');
+    toast(r.analysisStarted ? '已保存，正在按新配置增量分析…' : '已保存');
     await refreshData();
   } catch (err) {
-    toast(`保存失败:${err.message}`, true);
+    toast(`保存失败：${err.message}`, true);
   } finally {
     $('settings-save').disabled = false;
   }
@@ -1217,14 +1266,16 @@ function renderInfo() {
   el.innerHTML = `
     <h3>状态与隐私说明</h3>
     <section>
-      <div class="kv"><b>隐私提示</b><span>开启翻译会把所看文档的原文发送到外部服务 uapis.cn(AI 翻译接口)。代码块/命令/路径/环境变量会先摘出、译后回填,不会被翻译改写。</span></div>
-      <div class="kv"><b>翻译同意</b><span>${t.consentTranslate ? '<span class="ok-text">已同意</span>' : '<span class="off-text">未同意(仅原文)</span>'}</span></div>
-      <div class="kv"><b>积分消耗</b><span>累计 ${t.creditsUsed || 0} 积分 · ${t.apiCalls || 0} 次调用(每次 4 积分)</span></div>
+      <div class="kv" style="align-items: self-start;"><b>隐私提示</b><span>开启翻译后，新翻译的文档原文会发送到外部服务 uapis.cn（AI 翻译接口）；已缓存译文只在本地读取。代码块/命令/路径/环境变量会先摘出、译后回填，不会被翻译改写。</span></div>
+      <div class="kv"><b>翻译同意</b><span>${t.consentTranslate
+        ? '<span class="ok-text">已同意</span> <button class="btn btn-ghost" id="btn-revoke-consent">撤回同意</button>'
+        : '<span class="off-text">未同意（不发新请求）</span> <button class="btn" id="btn-open-consent-info">开启中英对照</button>'}</span></div>
+      <div class="kv"><b>积分消耗</b><span>累计 ${t.creditsUsed || 0} 积分 · ${t.apiCalls || 0} 次调用（每次 4 积分）</span></div>
     </section>
     <section id="info-keysource">…</section>
     <section>
       <div class="kv"><b>技能根</b><span>${roots}</span></div>
-      <div class="kv"><b>上次分析</b><span>${lastAt}(${t.lastAnalysis?.entities ?? '-'} 技能)</span></div>
+      <div class="kv"><b>上次分析</b><span>${lastAt}（${t.lastAnalysis?.entities ?? '-'} 技能）</span></div>
     </section>
     ${errors || (t.lastAnalysis?.errors || []).length
       ? `<section><div class="kv"><b>上次警告</b></div>
@@ -1232,7 +1283,7 @@ function renderInfo() {
          <button class="btn warn-clear" id="btn-clear-warnings">清除警告</button></section>`
       : ''}
     <section>
-      <div class="kv"><b>API key</b><span>网页 ⚙ 设置页保存的密钥以 OS 凭据库 + AES-256-GCM 加密落盘;密钥永不回传浏览器明文。</span></div>
+      <div class="kv"><b>API key</b><span>网页 ⚙ 设置页保存的密钥以 OS 凭据库 + AES-256-GCM 加密落盘；密钥永不回传浏览器明文。</span></div>
     </section>`;
   const cw = $('btn-clear-warnings');
   if (cw) {
@@ -1242,15 +1293,29 @@ function renderInfo() {
         S.status = await api('/api/status'); // 轮询缓存是旧的,先取最新再重渲染
         renderInfo();
       } catch (err) {
-        toast(`清除失败:${err.message}`, true);
+        toast(`清除失败：${err.message}`, true);
       }
+    };
+  }
+  const openConsentBtn = $('btn-open-consent-info');
+  if (openConsentBtn) {
+    openConsentBtn.onclick = () => {
+      $('info-popover').hidden = true;
+      showConsent();
+    };
+  }
+  const revokeBtn = $('btn-revoke-consent');
+  if (revokeBtn) {
+    revokeBtn.onclick = () => {
+      $('info-popover').hidden = true;
+      $('revoke-modal').hidden = false;
     };
   }
   // 密钥来源(异步补充)
   api('/api/settings').then((settings) => {
     const box = $('info-keysource');
     if (!box) return;
-    const src = (s) => (s === 'store' ? '网页设置(加密存储)' : '<span class="off-text">未配置</span>');
+    const src = (s) => (s === 'store' ? '网页设置（加密存储）' : '<span class="off-text">未配置</span>');
     const kindZh = { dpapi: 'Windows DPAPI + AES-256-GCM', keychain: 'macOS 钥匙串 + AES-256-GCM', 'secret-tool': 'Linux secret-tool + AES-256-GCM', machine: '机器绑定 AES-256-GCM' }[settings.credentialStoreKind] || settings.credentialStoreKind;
     box.innerHTML = `
       <div class="kv"><b>翻译密钥</b><span>${src(settings.translate.source)}${settings.translate.maskedKey ? ' · ' + esc(settings.translate.maskedKey) : ''}</span></div>
@@ -1268,6 +1333,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!$('consent-modal').hidden) hideConsent(false);
+    else if (!$('revoke-modal').hidden) $('revoke-modal').hidden = true;
+    else if (!$('unknown-modal').hidden) $('unknown-modal').hidden = true;
     else if (!$('settings-modal').hidden) $('settings-modal').hidden = true;
     else if (!$('viewer').hidden) closeViewer();
     else if (!$('info-popover').hidden) $('info-popover').hidden = true;

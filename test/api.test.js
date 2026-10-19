@@ -822,6 +822,123 @@ test('19 用户刚同意隐私时不启动全量预翻(避免与当前文档抢�
   }
 });
 
+/* ---------- 21 翻译同意:撤回后不发新请求,缓存译文仍可查看 ---------- */
+
+test('21 翻译同意:撤回后不发新请求,缓存译文仍可查看', async () => {
+  const app = await startApp({ dataDir: path.join(TMP, 'data-consent-loop') });
+  try {
+    await post(app.base, '/api/consent', { accept: true });
+    await waitFor(async () => {
+      const st = await get(app.base, '/api/status');
+      return !st.body.running;
+    });
+    const alpha = skillsByDir((await get(app.base, '/api/skills')).body, 'alpha')[0];
+    const beforeCalls = ctx.uapi.stats().calls;
+    const first = await post(app.base, `/api/skills/${alpha.id}/translate`, { path: 'SKILL.md' });
+    assert.equal(first.status, 200, '同意后可翻译');
+    assert.equal(first.body.cached, false);
+    const afterCalls = ctx.uapi.stats().calls;
+    assert.ok(afterCalls > beforeCalls, '首次翻译产生调用');
+
+    const revoke = await post(app.base, '/api/consent', { accept: false });
+    assert.equal(revoke.status, 200);
+    assert.equal(revoke.body.consentTranslate, false);
+    const st = await get(app.base, '/api/status');
+    assert.equal(st.body.state.consentTranslate, false, '撤回状态已持久化');
+
+    const cachedView = await post(app.base, `/api/skills/${alpha.id}/translate`, { path: 'SKILL.md' });
+    assert.equal(cachedView.status, 200, '撤回后缓存译文仍可查看');
+    assert.equal(cachedView.body.cached, true);
+    assert.equal(ctx.uapi.stats().calls, afterCalls, '撤回后不再发起新的翻译请求');
+
+    await post(app.base, '/api/consent', { accept: true });
+    const again = await post(app.base, `/api/skills/${alpha.id}/translate`, { path: 'SKILL.md' });
+    assert.equal(again.status, 200, '重新同意后恢复');
+    assert.equal(again.body.cached, true, '恢复后直接命中缓存');
+    assert.equal(ctx.uapi.stats().calls, afterCalls, '缓存命中不重复调用');
+  } finally {
+    await closeServer(app.server);
+  }
+});
+
+/* ---------- 22 配置发现:共享目录回退(网页/桌面同一 dataDir 的机制) ---------- */
+
+test('22 配置发现:共享目录回退生效,显式配置仍最优先', () => {
+  const fs = require('node:fs');
+  const { loadConfig, configSearchCandidates, sharedConfigPath } = require('../lib/config');
+
+  // 候选顺序:启动目录 → 仓库根 → 共享目录;注入不改进程状态
+  const injected = configSearchCandidates({ cwd: '/tmp/x', repoDir: '/tmp/repo', appDataDir: '/tmp/ad' });
+  assert.deepEqual(
+    injected.map((p) => p.replace(/\\/g, '/')),
+    ['/tmp/x/config.json', '/tmp/repo/config.json', sharedConfigPath('/tmp/ad').replace(/\\/g, '/')],
+  );
+
+  const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-cfg-'));
+  const fakeAppData = path.join(sandbox, 'appdata');
+  const fakeCwd = path.join(sandbox, 'cwd');
+  fs.mkdirSync(path.join(fakeAppData, 'skill-viewer'), { recursive: true });
+  fs.mkdirSync(fakeCwd, { recursive: true });
+  const shared = path.join(fakeAppData, 'skill-viewer', 'config.json');
+  fs.writeFileSync(shared, JSON.stringify({ dataDir: path.join(sandbox, 'shared-data') }));
+
+  const prevAppData = process.env.APPDATA;
+  const prevCwd = process.cwd();
+  process.env.APPDATA = fakeAppData;
+  process.chdir(fakeCwd);
+  try {
+    // 无本地配置 → 回退到共享目录,dataDir 相对共享配置目录解析
+    const viaShared = loadConfig(null);
+    assert.equal(viaShared.configFile, shared);
+    assert.equal(viaShared.dataDir, path.resolve(sandbox, 'shared-data'));
+
+    // 启动目录有配置 → 优先于共享目录
+    fs.writeFileSync(path.join(fakeCwd, 'config.json'), JSON.stringify({ dataDir: 'local-data' }));
+    const viaCwd = loadConfig(null);
+    assert.equal(viaCwd.configFile, path.join(fakeCwd, 'config.json'));
+    assert.equal(viaCwd.dataDir, path.resolve(fakeCwd, 'local-data'));
+
+    // 显式路径 → 压过一切
+    const explicitCfg = loadConfig(shared);
+    assert.equal(explicitCfg.configFile, shared);
+  } finally {
+    process.chdir(prevCwd);
+    if (prevAppData === undefined) delete process.env.APPDATA; else process.env.APPDATA = prevAppData;
+    fs.rmSync(sandbox, { recursive: true, force: true });
+  }
+});
+
+/* ---------- 23 凭据损坏防护:坏文件先备份留档,存储仍可恢复使用 ---------- */
+
+test('23 凭据损坏防护:坏 masterkey 被备份而非静默销毁,损坏后仍可恢复使用', async () => {
+  const dir = path.join(TMP, 'data-credbackup');
+  fs.mkdirSync(dir, { recursive: true });
+  const backups = () => fs.readdirSync(dir).filter((f) => f.includes('.corrupt-'));
+
+  // 场景 1:预置坏 .masterkey → 初始化应备份它并重建,存储照常工作
+  fs.writeFileSync(path.join(dir, '.masterkey'), 'definitely-not-a-valid-masterkey!!');
+  const app = await startApp({ dataDir: dir });
+  try {
+    assert.ok(backups().some((f) => f.startsWith('.masterkey.corrupt-')), '坏 .masterkey 已备份');
+    const st = await get(app.base, '/api/settings');
+    assert.ok(st.body.translate.maskedKey, '重建后存取正常(maskedKey 有值)');
+    assert.ok(['dpapi', 'machine'].includes(st.body.credentialStoreKind), `凭据库类型正常(${st.body.credentialStoreKind})`);
+  } finally {
+    await closeServer(app.server);
+  }
+
+  // 场景 2:正常凭据落盘后,credentials.enc 被破坏 → 再次启动备份它,存储恢复可用
+  fs.appendFileSync(path.join(dir, 'credentials.enc'), '},{garbage!!');
+  const app2 = await startApp({ dataDir: dir });
+  try {
+    assert.ok(backups().some((f) => f.startsWith('credentials.enc.corrupt-')), '坏 credentials.enc 已备份');
+    const st = await get(app2.base, '/api/settings');
+    assert.ok(st.body.translate.maskedKey, '恢复后存取正常(maskedKey 有值)');
+  } finally {
+    await closeServer(app2.server);
+  }
+});
+
 /* ---------- 17 无环境变量时走加密存储的密钥(端到端) ---------- */
 
 test('17 存储密钥端到端:无环境变量时 LLM 概述与翻译均走加密存储', async () => {

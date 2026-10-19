@@ -1013,8 +1013,9 @@ body::before {
 }
 .popover h3 { margin: 2px 0 8px; font-size: 14px; }
 .popover section { margin-bottom: 12px; }
-.popover .kv { display: flex; gap: 8px; }
+.popover .kv { display: flex; gap: 8px; align-items: center; }
 .popover .kv b { flex: 0 0 92px; color: var(--ink-2); font-weight: 600; }
+.popover .kv .btn { padding: 2px 10px; font-size: 12px; }
 .popover .warn-list { color: var(--danger); margin: 4px 0 0; padding-left: 16px; }
 .popover .ok-text { color: var(--ok); }
 .popover .off-text { color: var(--ink-3); }
