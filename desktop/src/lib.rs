@@ -21,6 +21,10 @@ use std::sync::atomic::{AtomicU16, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+/// 窗口与托盘图标:显式嵌入,不依赖 default_window_icon(程序化建窗时它为 None)
+const WINDOW_ICON_PNG: &[u8] = include_bytes!("../icons/128x128@2x.png");
+const TRAY_ICON_PNG: &[u8] = include_bytes!("../icons/32x32.png");
+
 /// 构建应用状态(配置 → 缓存目录 → 凭据 → provider → 管线)。
 pub async fn build_app(cfg: config::Config, desktop: bool) -> Arc<App> {
     let cache = cache::Cache::new(&cfg.data_dir);
@@ -179,8 +183,10 @@ pub fn run() {
 
             // 主窗口(指向本地服务)
             let url: tauri::Url = format!("http://127.0.0.1:{port}/").parse().expect("valid url");
+            let window_icon = tauri::image::Image::from_bytes(WINDOW_ICON_PNG)?;
             let window = tauri::WebviewWindowBuilder::new(tauri_app, "main", tauri::WebviewUrl::External(url))
-                .title("Skill 全览 · 本地知识库")
+                .title("Skill 译站 · 中英对照学习")
+                .icon(window_icon)?
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(920.0, 600.0)
                 .visible(!start_hidden)
@@ -189,17 +195,16 @@ pub fn run() {
             // 托盘:显示 / 退出
             use tauri::menu::{MenuBuilder, MenuItemBuilder};
             use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-            let show_item = MenuItemBuilder::with_id("show", "显示 Skill 全览").build(tauri_app)?;
+            let tray_icon = tauri::image::Image::from_bytes(TRAY_ICON_PNG)?;
+            let show_item = MenuItemBuilder::with_id("show", "显示 Skill 译站").build(tauri_app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "退出").build(tauri_app)?;
             let menu = MenuBuilder::new(tauri_app).item(&show_item).separator().item(&quit_item).build()?;
             let tray = TrayIconBuilder::with_id("main-tray")
-                .tooltip("Skill 全览 · 本地知识库")
+                .tooltip("Skill 译站 · 中英对照学习")
+                .icon(tray_icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .build(tauri_app)?;
-            if let Some(icon) = tauri_app.default_window_icon() {
-                tray.set_icon(Some(icon.clone()))?;
-            }
             tray.on_tray_icon_event(|tray, event| {
                 if let TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, button_state: tauri::tray::MouseButtonState::Up, .. } = event {
                     if let Some(w) = tray.app_handle().get_webview_window("main") {

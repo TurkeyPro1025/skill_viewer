@@ -1,7 +1,7 @@
 [package]
 name = "skill-viewer-desktop"
 version = "0.1.0"
-description = "Skill 全览桌面版:多根扫描、lock 归属、中英对照阅读(深蓝玻璃拟态)"
+description = "Skill 译站桌面版:多根扫描、lock 归属、中英对照学习(深蓝玻璃拟态)"
 authors = ["skill-viewer contributors"]
 license = "MIT"
 edition = "2021"
@@ -11,7 +11,7 @@ rust-version = "1.77"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-single-instance = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "sync", "fs", "process"] }

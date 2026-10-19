@@ -48,6 +48,8 @@ const check = (name, ok, detail = '') => {
     }
     check('index.html 无 btn-theme(已删主题按钮)', !idx.includes('btn-theme'));
     check('index.html 无 j/k 导航残留(keydownNav)', !idx.includes('keydownNav'));
+    check('index.html 品牌名为 Skill 译站', idx.includes('Skill 译站'));
+    check('index.html 无旧品牌名', !idx.includes('Skill 图鉴') && !idx.includes('Skill 全览'));
 
     // 2) 内嵌 app.js 标记
     const js = await (await fetch(base + '/app.js')).text();
