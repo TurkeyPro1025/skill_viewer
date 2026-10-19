@@ -2,7 +2,7 @@
 //! Windows DPAPI 主密钥 + AES-256-GCM 凭据文件)。
 //! 注意:非 Windows 的 machine 兜底指纹与 Node 版(含 MAC)不同,
 //! 跨实现仅 Windows/DPAPI 路径保证互通——桌面版 v1 只面向 Windows。
-//! 密钥绝不以明文落盘。
+//! 密钥绝不以明文落盘;任何无法解密、即将重建覆盖的文件都先备份留档(corrupt-*),绝不静默销毁。
 
 use crate::util;
 use aes_gcm::aead::{Aead, KeyInit, Payload};
@@ -41,6 +41,31 @@ impl CredentialStore {
         }
     }
 
+    /// 无法解密/即将被重建覆盖的文件先留档副本,绝不静默销毁——
+    /// 万一是瞬时故障,用户可凭备份找回全部密钥。备份失败不阻塞初始化。
+    fn backup_corrupt(&self, file: &std::path::Path, reason: &str) {
+        if !file.exists() {
+            return;
+        }
+        let stamp = chrono::Local::now().format("%Y%m%dT%H%M%S");
+        // 在完整文件名后追加(.masterkey → .masterkey.corrupt-…),不用 with_extension
+        let base = file.as_os_str().to_string_lossy().into_owned();
+        let mut backup = PathBuf::from(format!("{base}.corrupt-{stamp}"));
+        for i in 1.. {
+            if !backup.exists() {
+                break;
+            }
+            backup = PathBuf::from(format!("{base}.corrupt-{stamp}-{i}"));
+        }
+        match std::fs::copy(file, &backup) {
+            Ok(_) => eprintln!(
+                "[credentials] 无法解密的文件已备份: {}({reason})",
+                backup.file_name().map(|s| s.to_string_lossy()).unwrap_or_default()
+            ),
+            Err(err) => eprintln!("[credentials] 备份失败(忽略): {err}"),
+        }
+    }
+
     pub async fn init(&self) {
         let _ = std::fs::create_dir_all(self.master_file.parent().unwrap_or(std::path::Path::new(".")));
         let mut inner = self.inner.lock().await;
@@ -65,8 +90,10 @@ impl CredentialStore {
             }
         }
 
-        // 2) 生成新主密钥并落 OS 凭据库;失败则回退机器指纹派生
+        // 2) 生成新主密钥并落 OS 凭据库;失败则回退机器指纹派生。
+        //    走到这里说明旧主密钥文件解不开(或不存在):存在则先备份留档。
         if key.is_none() {
+            self.backup_corrupt(&self.master_file, "主密钥读取失败,即将重建");
             let fresh: Vec<u8> = (0..KEY_LEN).map(|_| rand::random::<u8>()).collect();
             #[cfg(windows)]
             let stored = dpapi_protect(&fresh)
@@ -89,27 +116,46 @@ impl CredentialStore {
         let master = key.unwrap();
         let master_kind = kind.unwrap();
 
-        // 3) 读凭据文件(kind 匹配才解密)
+        // 3) 读凭据文件(kind 匹配才解密);任何放弃读取的分支都先备份留档
         let mut creds = BTreeMap::new();
-        if let Ok(text) = std::fs::read_to_string(&self.cred_file) {
-            if let Ok(env) = serde_json::from_str::<Value>(&text) {
-                if env.get("version").and_then(|v| v.as_i64()) == Some(1) {
-                    let file_kind = env.get("kind").and_then(|v| v.as_str()).unwrap_or("");
-                    if file_kind == master_kind {
-                        if let Some(map) = decrypt_map(
+        if self.cred_file.exists() {
+            match std::fs::read_to_string(&self.cred_file) {
+                Err(err) => {
+                    self.backup_corrupt(&self.cred_file, &format!("读取失败:{err}"));
+                }
+                Ok(text) => match serde_json::from_str::<Value>(&text) {
+                    Err(err) => {
+                        self.backup_corrupt(&self.cred_file, &format!("JSON 解析失败:{err}"));
+                        eprintln!("[credentials] 凭据文件解析失败,按空存储继续: {err}");
+                    }
+                    Ok(env) => {
+                        let version = env.get("version").and_then(|v| v.as_i64());
+                        let file_kind = env.get("kind").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        if version != Some(1) {
+                            self.backup_corrupt(&self.cred_file, &format!("版本不识别(version={version:?})"));
+                            eprintln!("[credentials] 凭据文件版本不识别,按空存储继续");
+                        } else if file_kind != master_kind {
+                            self.backup_corrupt(&self.cred_file, &format!("主密钥来源变化({file_kind} → {master_kind})"));
+                            eprintln!("[credentials] 主密钥来源已变化({file_kind} → {master_kind}),已存密钥无法解密,需重新录入");
+                        } else if decrypt_map(
                             &master,
                             env.get("iv").and_then(|v| v.as_str()).unwrap_or_default(),
                             env.get("tag").and_then(|v| v.as_str()).unwrap_or_default(),
                             env.get("ct").and_then(|v| v.as_str()).unwrap_or_default(),
-                        ) {
+                        )
+                        .map(|map| {
                             for (k, v) in map {
                                 creds.insert(k, v);
                             }
+                            true
+                        })
+                        .is_none()
+                        {
+                            self.backup_corrupt(&self.cred_file, "AES-GCM 解密失败");
+                            eprintln!("[credentials] 凭据文件解密失败,按空存储继续");
                         }
-                    } else if !file_kind.is_empty() {
-                        eprintln!("[credentials] 主密钥来源已变化({file_kind} → {master_kind}),已存密钥无法解密,需重新录入");
                     }
-                }
+                },
             }
         }
 
