@@ -20,6 +20,10 @@ pub fn router(app: Arc<App>) -> Router {
         .route("/style.css", get(css_route))
         .route("/app.js", get(js_route))
         .route("/logo.png", get(logo_route))
+        // 清理版图标文件本体;前端实际渲染用的是 app.js 内联常量(ICO_DUMP_TO/ICO_LINK,
+        // 可继承 currentColor),这两条路由仅对外提供文件,无前端消费方
+        .route("/dump_to.svg", get(|| async { asset("dump_to.svg", "image/svg+xml") }))
+        .route("/link.svg", get(|| async { asset("link.svg", "image/svg+xml") }))
         .route("/api/status", get(status))
         .route("/api/skills", get(skills_list))
         .route("/api/categories", get(categories))
@@ -80,6 +84,8 @@ fn asset(name: &str, mime: &str) -> Response {
         "style.css" => include_bytes!("../../public/style.css"),
         "app.js" => include_bytes!("../../public/app.js"),
         "logo.png" => include_bytes!("../../public/logo.png"),
+        "dump_to.svg" => include_bytes!("../../public/dump_to.svg"),
+        "link.svg" => include_bytes!("../../public/link.svg"),
         _ => return not_found(),
     };
     ([(header::CONTENT_TYPE, mime.to_string())], body).into_response()
@@ -776,17 +782,18 @@ async fn settings_providers(axum::extract::State(app): axum::extract::State<Arc<
         if let Some(p) = &preset {
             patch.insert("preset".into(), p.get("id").cloned().unwrap_or(Value::Null));
         }
-        if let Some(p) = &preset {
-            if p.get("id").and_then(|v| v.as_str()) != Some("custom") {
-                patch.insert(
-                    "baseUrl".into(),
-                    p.get("baseUrl").cloned().unwrap_or(json!("")),
-                );
-            } else if let Some(b) = l.get("baseUrl").and_then(|v| v.as_str()) {
-                patch.insert("baseUrl".into(), json!(b.trim()));
+        // 用户显式填写的地址优先(预设仅作默认值,如中转站换地址);否则回落预设地址
+        match l.get("baseUrl").and_then(|v| v.as_str()).map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) {
+            Some(b) => { patch.insert("baseUrl".into(), json!(b)); }
+            None => {
+                if let Some(pb) = preset
+                    .as_ref()
+                    .filter(|p| p.get("id").and_then(|v| v.as_str()) != Some("custom"))
+                    .and_then(|p| p.get("baseUrl").cloned())
+                {
+                    patch.insert("baseUrl".into(), pb);
+                }
             }
-        } else if let Some(b) = l.get("baseUrl").and_then(|v| v.as_str()) {
-            patch.insert("baseUrl".into(), json!(b.trim()));
         }
         if let Some(m) = l.get("model").and_then(|v| v.as_str()) {
             patch.insert("model".into(), json!(m.trim()));
