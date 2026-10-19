@@ -3,8 +3,28 @@
   "host": "127.0.0.1",
   "roots": [
     "~/.agents/skills",
+    "~/.claude/skills",
     "~/.zcode/skills",
-    "~/.claude/skills"
+    "~/.codex/skills",
+    "~/.cursor/skills",
+    "~/.gemini/skills",
+    "~/.config/opencode/skills",
+    "~/.codeium/windsurf/skills",
+    "~/.config/goose/skills",
+    "~/.config/crush/skills",
+    "~/.continue/skills",
+    "~/.roo/skills",
+    "~/.copilot/skills",
+    "~/.factory/skills",
+    "~/.kiro/skills",
+    "~/.augment/skills",
+    "~/.config/agents/skills",
+    "~/.qwen/skills",
+    "~/.trae/skills",
+    "~/.trae-cn/skills",
+    "~/.qoder/skills",
+    "~/.codebuddy/skills",
+    "~/.iflow/skills"
   ],
   "lockFiles": [
     "~/.agents/.skill-lock.json"
