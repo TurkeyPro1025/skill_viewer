@@ -329,7 +329,7 @@ function createFakeLlm() {
         return res.end(JSON.stringify({ error: { message: 'Invalid API key' } }));
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ data: [{ id: 'stub-model' }, { id: 'stub-model-pro' }] }));
+      return res.end(JSON.stringify({ data: [{ id: 'stub-model', name: 'Stub Model' }, { id: 'stub-model-pro', name: 'Stub Model Pro' }] }));
     }
     res.writeHead(404); res.end('{}');
   });

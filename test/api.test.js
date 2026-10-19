@@ -708,7 +708,7 @@ test('15 连通测试:LLM models 探测、翻译免费探针与完整测试', as
   const ok = await post(ctx.base, '/api/settings/test/llm', {});
   assert.equal(ok.status, 200);
   assert.equal(ok.body.ok, true);
-  assert.ok(ok.body.models.includes('stub-model'), '返回模型列表');
+  assert.ok(ok.body.models.some((m) => m.id === 'stub-model' && m.name === 'Stub Model'), '返回模型列表(id+name)');
   assert.ok(ok.body.latencyMs >= 0);
 
   const bad = await post(ctx.base, '/api/settings/test/llm', { apiKey: 'wrong-key' });
