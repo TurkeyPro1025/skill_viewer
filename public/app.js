@@ -63,9 +63,14 @@ function saveAppearance() {
 function applyAppearance() {
   document.documentElement.dataset.theme = 'light'; // 主题固定浅色
   document.documentElement.dataset.density = S.appearance.density;
-  const densitySel = $('app-density');
-  if (densitySel) densitySel.value = S.appearance.density;
+  document.querySelectorAll('input[name="density"]').forEach((r) => {
+    r.checked = r.value === S.appearance.density;
+  });
 }
+
+/* 内联图标(fill=currentColor,颜色随文字):外链跳转 / 链接标记 */
+const ICO_DUMP_TO = '<svg class="ico-svg" viewBox="0 0 1024 1024" aria-hidden="true"><path d="M831.875 960.01H63.99V192.125h351.948a31.995 31.995 0 0 0 31.995-31.996 31.995 31.995 0 0 0-31.995-31.995H63.99A63.99 63.99 0 0 0 0 192.124V960.01A63.99 63.99 0 0 0 63.99 1024h767.885a63.99 63.99 0 0 0 63.99-63.99V608.062a31.995 31.995 0 0 0-31.994-31.995 31.995 31.995 0 0 0-31.996 31.995z" fill="currentColor"/><path d="M1023.847 25.75c0-0.896 0-1.792-0.768-2.688a31.611 31.611 0 0 0-1.024-3.327 31.74 31.74 0 0 0-1.536-3.072c0-0.768-0.768-1.664-1.408-2.432a32.123 32.123 0 0 0-8.83-8.83l-3.072-1.152-3.071-1.664-3.328-1.024-2.56-1.408a32.123 32.123 0 0 0-6.27 0H544.045a31.995 31.995 0 0 0-32.123 31.996 31.995 31.995 0 0 0 31.995 31.995h371.145L361.29 617.404a31.995 31.995 0 1 0 45.305 45.306l553.261-553.26v371.143a31.995 31.995 0 0 0 31.995 31.484 31.995 31.995 0 0 0 31.996-31.995V32.149a32.123 32.123 0 0 0 0-6.4z" fill="currentColor"/></svg>';
+const ICO_LINK = '<svg class="ico-svg" viewBox="0 0 1024 1024" aria-hidden="true"><path d="M762.24 506.88a32 32 0 0 1-46.08-44.16l55.68-58.24a125.76 125.76 0 0 0-12.16-171.2c-48.32-50.24-119.68-54.72-160-12.48L444.16 384a125.76 125.76 0 0 0 12.16 171.2 32 32 0 0 1 0 45.12 32 32 0 0 1-45.44 0 189.44 189.44 0 0 1-12.16-259.52l155.52-162.24c66.88-69.76 180.48-64 252.8 12.8A189.44 189.44 0 0 1 818.24 448z" fill="currentColor"/><path d="M229.76 517.12a32 32 0 0 1 46.08 44.16l-55.68 58.24a125.76 125.76 0 0 0 12.16 171.2c48.32 50.24 119.68 54.72 160 12.48L547.84 640a125.76 125.76 0 0 0-12.16-171.2 32 32 0 0 1 0-45.12 32 32 0 0 1 45.44 0 189.44 189.44 0 0 1 12.16 259.52L437.76 845.44c-66.88 69.76-180.48 64-252.8-12.8A189.44 189.44 0 0 1 173.76 576z" fill="currentColor"/></svg>';
 
 /* 根目录徽章:已知工具上品牌特征色(CSS .root-<slug> 定义);名单外的
    非主流 agent 散列到 10 色冗余池(CSS root-auto0..9),同一目录颜色稳定。 */
@@ -90,36 +95,30 @@ function rootBadgeClass(label) {
   return ` root-auto${h % ROOT_AUTO_COLORS}`;
 }
 
-/* ============ 键盘导航 ============ */function isTypingTarget(e) {
-  const t = e.target;
-  return Boolean(t) && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
-}
-
-function moveCardFocus(dir) {
-  const cards = document.querySelectorAll('#groups .card');
-  if (!cards.length) return;
-  const list = [...cards];
-  const idx = list.indexOf(document.activeElement);
-  const next = idx === -1
-    ? (dir > 0 ? list[0] : list[list.length - 1])
-    : list[Math.min(list.length - 1, Math.max(0, idx + dir))];
-  next.focus();
-  next.scrollIntoView({ block: 'nearest' });
-}
-
-/** 查看器内切换文档([ / ]) */
-function switchDoc(delta) {
-  const items = [...document.querySelectorAll('.doc-item')];
-  const idx = items.findIndex((el) => el.classList.contains('on'));
-  const next = items[idx + delta];
-  if (next) next.click();
-}
-
 /* ============ 初始化 ============ */
 async function boot() {
   S.appearance = loadAppearance();
   applyAppearance();
-  $('app-density').addEventListener('change', () => { S.appearance.density = $('app-density').value; saveAppearance(); applyAppearance(); });
+  document.querySelectorAll('input[name="density"]').forEach((r) => {
+    r.addEventListener('change', () => {
+      S.appearance.density = r.value;
+      saveAppearance();
+      applyAppearance();
+      renderGroups(); // 密度改变卡片宽度,根徽章需重新适配
+    });
+  });
+  // 窗口宽度变化同样影响一行能放下几个徽章
+  let resizeT;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => { if (S.data) renderGroups(); }, 150);
+  });
+  // 读数条「待确认推断」:直达整理归属,展开低置信度折叠区
+  $('st-infer').addEventListener('click', () => {
+    if (!S.selectMode) toggleSelectMode(true);
+    document.querySelectorAll('details.subgroup.lowconf').forEach((d) => { d.open = true; });
+    document.querySelector('details.subgroup.lowconf')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
 
   $('search').addEventListener('input', (e) => { S.q = e.target.value.trim(); renderGroups(); });
   $('btn-update').addEventListener('click', manualUpdate);
@@ -128,16 +127,8 @@ async function boot() {
   $('btn-cancel-select').addEventListener('click', () => toggleSelectMode(false));
   $('btn-assign').addEventListener('click', () => assignSelection($('repo-select').value));
   $('repo-select').addEventListener('change', () => { $('btn-assign').disabled = !$('repo-select').value; });
-  // 模型下拉:选「手动输入」切换到文本框
-  $('llm-model-select').addEventListener('change', () => {
-    if ($('llm-model-select').value === '__custom__') {
-      $('llm-model-select').hidden = true;
-      const input = $('llm-model-input');
-      input.hidden = false;
-      input.value = '';
-      input.focus();
-    }
-  });
+  // 模型选择器(可搜索下拉:纯选择,不允许可自由输入)
+  initModelPicker();
   $('btn-unknown').addEventListener('click', () => assignSelection(''));
   $('btn-confirm').addEventListener('click', confirmInference);
   $('viewer-close').addEventListener('click', closeViewer);
@@ -146,7 +137,7 @@ async function boot() {
   $('btn-settings').addEventListener('click', openSettings);
   $('settings-close').addEventListener('click', () => { $('settings-modal').hidden = true; });
   $('settings-save').addEventListener('click', saveSettings);
-  $('llm-preset').addEventListener('change', applyPresetSelection);
+  $('llm-preset').addEventListener('change', () => applyPresetSelection(true));
   $('btn-test-translate').addEventListener('click', () => testTranslateFromUI(false));
   $('btn-test-translate-full').addEventListener('click', () => testTranslateFromUI(true));
   $('btn-test-llm').addEventListener('click', testLlmFromUI);
@@ -170,11 +161,11 @@ async function refreshData() {
     S.data = skills;
     S.data.categories = categories.categories || [];
   } catch (err) {
-    if (err.code === 'no_index') {
-      $('stats-line').textContent = '首次分析进行中…';
-    } else {
-      $('stats-line').textContent = `加载失败:${err.message}`;
-    }
+    $('stats-bar').hidden = false;
+    $('stats-line').hidden = false;
+    $('stats-line').textContent = err.code === 'no_index'
+      ? '首次分析进行中…'
+      : `加载失败:${err.message}`;
     return;
   }
   renderCategories();
@@ -213,9 +204,14 @@ function renderStats() {
   const d = S.data;
   if (!d) return;
   const groupCount = d.groups.filter((g) => g.key !== '__unknown__').length;
-  $('stats-line').textContent =
-    `${d.stats.entities} 技能 · ${groupCount} 仓库 · 已归属 ${d.stats.attributed}` +
-    (d.stats.inferred ? ` · 待确认推断 ${d.stats.inferred}` : '');
+  $('stats-bar').hidden = false;
+  $('stats-line').hidden = true;
+  $('st-skills').textContent = d.stats.entities;
+  $('st-repos').textContent = groupCount;
+  $('st-attr').textContent = d.stats.attributed;
+  const infer = d.stats.inferred || 0;
+  $('st-infer').hidden = infer === 0;
+  $('st-infer').querySelector('b').textContent = infer;
 }
 
 function renderProgress() {
@@ -309,19 +305,22 @@ function renderGroups() {
 
     const head = document.createElement('div');
     head.className = 'group-head';
-    head.onclick = () => {
+    head.onclick = (e) => {
+      // 仓库描述是纯表述文字:点击不折叠;用户正在划选文本时也不折叠(松手 click 落在头部会误收起)
+      if (e.target.closest('.group-summary')) return;
+      const sel = window.getSelection();
+      if (sel && sel.type === 'Range') return;
       if (S.collapsed.has(group.key)) S.collapsed.delete(group.key); else S.collapsed.add(group.key);
       renderGroups();
     };
     const ghBtn = group.sourceUrl
-      ? `<a class="gh-link" href="${esc(group.sourceUrl)}" target="_blank" rel="noreferrer" title="在 GitHub 打开 ${esc(group.name)}" onclick="event.stopPropagation()">↗ GitHub</a>`
+      ? `<a class="gh-link" href="${esc(group.sourceUrl)}" target="_blank" rel="noreferrer" title="在 GitHub 打开 ${esc(group.name)}" onclick="event.stopPropagation()">${ICO_DUMP_TO}<span>GitHub</span></a>`
       : '';
     head.innerHTML = `
       <span class="caret">▼</span>
       <span class="group-title">${esc(group.name)}</span>
       ${ghBtn}
       <span class="group-count">${visible} 技能</span>
-      ${isUnknown ? '' : '<span class="group-source-badge">安装来源</span>'}
       ${group.repoSummary ? `<p class="group-summary">${esc(group.repoSummary)}</p>` : ''}`;
     sec.appendChild(head);
 
@@ -354,7 +353,20 @@ function renderGroups() {
   }
 
   $('empty-state').hidden = visibleTotal > 0;
-  $('empty-hint').textContent = S.q || S.cat ? '试试更短的关键词,或取消分类筛选' : '';
+  const filtering = Boolean(S.q || S.cat);
+  if (filtering) {
+    $('st-match').hidden = false;
+    $('st-match-n').textContent = visibleTotal;
+    $('st-match-label').textContent = `/ ${S.data.stats.entities} 匹配`;
+    $('empty-hint').textContent = S.q
+      ? '按 Ctrl+K 回到搜索,试试更短的关键词'
+      : '点击上方高亮的分类胶囊可取消筛选';
+  } else {
+    $('st-match').hidden = true;
+    $('empty-hint').textContent = '';
+  }
+  // 卡片已入文档:测量并折叠溢出的根徽章
+  document.querySelectorAll('#groups .badges').forEach(fitRootBadges);
 }
 
 function isLowConfidence(c) {
@@ -368,27 +380,75 @@ function cardsGrid(cards) {
   return grid;
 }
 
+/**
+ * 根徽章一行适配:逐个隐藏换行到第二行的根徽章、折进「+N」,
+ * 直到根徽章(+N)都在第一行;被隐藏的挪进 +N 的悬浮层。
+ * 需在卡片已插入文档后调用(依赖 offsetTop 测量)。
+ */
+function fitRootBadges(badgesEl) {
+  const more = badgesEl.querySelector(':scope > .badge-more');
+  if (!more) return;
+  const roots = [...badgesEl.querySelectorAll(':scope > .badge-root:not(.badge-more)')];
+  const flyout = more.querySelector('.badge-flyout');
+  const hidden = () => roots.filter((r) => r.style.display === 'none');
+  const hide = (el) => { el.style.display = 'none'; };
+  more.style.display = 'none';
+  if (roots.length < 2) return;
+
+  let guard = 16;
+  while (guard--) {
+    const visible = roots.filter((r) => r.style.display !== 'none');
+    if (visible.length <= 1) break;
+    const firstTop = visible[0].offsetTop;
+    const overflow = visible.filter((r) => r.offsetTop !== firstTop);
+    if (!overflow.length) break;
+    hide(overflow[overflow.length - 1]);
+    more.style.display = '';
+    more.querySelector('.badge-more-n').textContent = hidden().length;
+  }
+  // +N 自身掉到第二行时,继续收一个
+  while (more.style.display !== 'none' && guard-- > 0) {
+    const visible = roots.filter((r) => r.style.display !== 'none');
+    if (visible.length <= 1 || more.offsetTop === visible[0].offsetTop) break;
+    hide(visible[visible.length - 1]);
+    more.querySelector('.badge-more-n').textContent = hidden().length;
+  }
+  // 全被折叠(极端窄卡)→ 放弃折叠,全部展示
+  if (!roots.some((r) => r.style.display !== 'none')) {
+    roots.forEach((r) => { r.style.display = ''; });
+    more.style.display = 'none';
+    return;
+  }
+  for (const r of hidden()) {
+    r.style.display = '';
+    flyout.appendChild(r);
+  }
+}
+
 function cardEl(card) {
   const el = document.createElement('div');
   el.className = 'card' + (S.selectMode ? ' selecting' : '') + (S.selection.has(card.id) ? ' selected' : '');
-  el.tabIndex = 0;
-  el.setAttribute('role', 'button');
-  el.setAttribute('aria-label', `打开技能 ${card.name}`);
 
   const badges = [];
-  for (const r of card.roots) {
-    badges.push(`<span class="badge badge-root${r.linked ? ' linked' : ''}${rootBadgeClass(r.label)}" title="${r.linked ? '链接到该工具根目录' : '实体所在根目录'}">${esc(r.label)}${r.linked ? ' ↗' : ''}</span>`);
+  const roots = card.roots || [];
+  for (const r of roots) {
+    badges.push(`<span class="badge badge-root${r.linked ? ' linked' : ''}${rootBadgeClass(r.label)}" title="${r.linked ? '链接到该工具根目录' : '实体所在根目录'}">${esc(r.label)}${r.linked ? ICO_LINK : ''}</span>`);
+  }
+  // 根徽章排满一行才折叠为「+N」(渲染后由 fitRootBadges 测量);悬停 +N 弹出剩余徽章
+  if (roots.length >= 2) {
+    badges.push('<span class="badge badge-root badge-more" title="其余生效的根目录">+<span class="badge-more-n"></span><span class="badge-flyout"></span></span>');
   }
   if (card.copyCount > 1) badges.push(`<span class="badge badge-copy" title="内容一致的独立拷贝已合并">${card.copyCount} 份拷贝已合并</span>`);
   const a = card.attribution;
   if (a) {
+    // 创作上游紧随根目录徽章:一行放得下就同行,放不下自然换行
+    if (a.upstream) badges.push(`<span class="badge badge-upstream" title="frontmatter 记录的创作上游(非安装来源)">创作上游:${esc(a.upstream.repo)}</span>`);
     if (a.inferred && !a.confirmed) {
       badges.push(`<span class="badge badge-infer">推断${a.confidence ? ' · ' + esc(confZh(a.confidence)) : ''} → ${esc(a.repo)}</span>`);
     } else if (a.inferred && a.confirmed) {
       badges.push(`<span class="badge badge-confirm" title="你已确认此推断">已确认推断</span>`);
     }
     if (a.method === 'overrides') badges.push('<span class="badge badge-confirm" title="手动归组">手动</span>');
-    if (a.upstream) badges.push(`<span class="badge badge-upstream" title="frontmatter 记录的创作上游(非安装来源)">创作上游:${esc(a.upstream.repo)}</span>`);
   }
   if (card.pendingInference) {
     badges.push(`<span class="badge badge-infer" title="LLM 推断候选(置信度不够未自动纳入)。到「整理归属」勾选后可一键确认。">推断候选:${esc(card.pendingInference.repo)} · ${esc(confZh(card.pendingInference.confidence))}</span>`);
@@ -415,9 +475,6 @@ function cardEl(card) {
     if (S.selection.has(card.id)) S.selection.delete(card.id); else S.selection.add(card.id);
     renderGroups();
     renderSelectionBar();
-  };
-  el.onkeydown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
   };
   el.onclick = (e) => {
     const cat = e.target.closest('.cat-tag');
@@ -663,6 +720,29 @@ function renderSingleColumn(doc) {
   for (const b of doc.blocks) {
     col.insertAdjacentHTML('beforeend', renderBlockMarkdown(b, skillId, doc.path));
   }
+  attachCodeCopy(col);
+}
+
+/** 代码块悬停复制按钮(原文代码块;译文侧代码块本就不翻译,共用同一实现) */
+function attachCodeCopy(root) {
+  root.querySelectorAll('.md pre').forEach((pre) => {
+    if (pre.querySelector('.code-copy')) return;
+    const btn = document.createElement('button');
+    btn.className = 'code-copy';
+    btn.type = 'button';
+    btn.textContent = '复制';
+    btn.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(pre.querySelector('code')?.textContent ?? pre.textContent);
+        btn.textContent = '已复制';
+      } catch {
+        btn.textContent = '复制失败';
+      }
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = '复制'; btn.disabled = false; }, 1500);
+    };
+    pre.appendChild(btn);
+  });
 }
 
 function renderBilingual(doc, translation) {
@@ -670,7 +750,6 @@ function renderBilingual(doc, translation) {
   const failed = [...tmap.values()].some((b) => b.status === 'failed');
   const cached = Boolean(translation?.cached);
   $('viewer-meta').innerHTML =
-    `<span>左:原文</span><span>右:译文</span>` +
     (cached ? '<span class="badge badge-confirm">已缓存 · 0 积分</span>' : '') +
     (failed ? '<button class="btn" id="btn-retry-doc">重试失败块</button>' : '');
 
@@ -678,15 +757,16 @@ function renderBilingual(doc, translation) {
   if (retryBtn) retryBtn.onclick = () => fetchTranslation({ retry: true });
 
   const box = $('viewer-content');
-  box.innerHTML = '<div class="bilingual"></div>';
-  const wrap = box.firstChild;
+  // 列头固定在滚动区外(结构性置顶),.bilingual 才是滚动元素
+  box.innerHTML = '<div class="bilingual-head"><span>原文</span><span>译文</span></div><div class="bilingual"></div>';
+  const wrap = box.querySelector('.bilingual');
   const skillId = S.viewer.skill.id;
 
   for (const b of doc.blocks) {
     const row = document.createElement('div');
     if (b.type === 'code' || b.type === 'hr') {
       row.className = 'brow full';
-      row.innerHTML = renderBlockMarkdown(b, skillId, doc.path);
+      row.innerHTML = `<div class="md">${renderBlockMarkdown(b, skillId, doc.path)}</div>`;
     } else {
       row.className = 'brow';
       const t = tmap.get(b.id);
@@ -706,6 +786,7 @@ function renderBilingual(doc, translation) {
     }
     wrap.appendChild(row);
   }
+  attachCodeCopy(wrap);
 }
 
 /* ============ Markdown 渲染(浏览器端,零依赖) ============ */
@@ -845,53 +926,126 @@ async function loadSettingsState() {
     : '输入 API key(留空 = 不变)';
   $('btn-clear-llm').hidden = st.llm.source !== 'store';
 
-  applyPresetSelection();
-  // 已保存模型作为选项置顶选中(不在预设列表也保留)
-  fillModelOptions(presetOf(st.llm.preset)?.models || [], st.llm.model || '');
+  S.savedModelId = st.llm.model || '';
+  S.modelValue = st.llm.model || '';
+  applyPresetSelection(false); // 打开弹窗:不自动覆盖已存的 API 地址
 }
 
 function presetOf(id) {
   return (S.settings?.presets || []).find((p) => p.id === id) || null;
 }
 
-function applyPresetSelection() {
-  const p = presetOf($('llm-preset').value);
-  const bu = $('llm-baseurl');
-  if (p && p.id !== 'custom') {
-    bu.value = p.baseUrl;
-    bu.readOnly = true;
-    fillModelOptions(p.models || []); // 切换预设 = 换服务商,模型重置
-  } else {
-    bu.readOnly = false;
-    if (p) bu.placeholder = 'https://…/v1(OpenAI 兼容)';
-    fillModelOptions([]);
-  }
+/* ---- 模型选择器:可搜索下拉;候选按服务商(预设|地址)隔离,显示 name、提交 id ---- */
+
+/** 当前服务商标识:同一服务商的拉取结果互通,跨服务商互不混入 */
+function providerKey() {
+  return `${$('llm-preset').value}|${$('llm-baseurl').value.trim()}`;
 }
 
-/** 模型下拉:候选 + "手动输入";extraValue 为已保存/当前值,不在候选时置顶保留 */
-function fillModelOptions(models, extraValue) {
-  const select = $('llm-model-select');
-  const input = $('llm-model-input');
-  input.hidden = true;
-  select.hidden = false;
-
-  const list = [...new Set([...(extraValue ? [extraValue] : []), ...(models || [])])];
-  if (!list.length) {
-    select.innerHTML = '<option value="">— 测试连通获取,或手动输入 —</option>' +
-      '<option value="__custom__">✎ 手动输入…</option>';
-    select.value = '';
-    return;
+/** 当前候选:该服务商「测试连通」拉取过 → 整体替换为拉取结果;否则 = 已保存模型 + 预设自带 */
+function currentCandidates() {
+  const fetched = S.fetchedModels?.get(providerKey()) || [];
+  if (fetched.length) {
+    return fetched
+      .filter((it) => it && typeof it.id === 'string' && it.id)
+      .map((it) => ({ id: it.id, name: typeof it.name === 'string' && it.name ? it.name : null }));
   }
-  select.innerHTML = list.map((m) => `<option value="${esc(m)}">${esc(m)}</option>`).join('') +
-    '<option value="__custom__">✎ 手动输入…</option>';
-  select.value = extraValue && list.includes(extraValue) ? extraValue : list[0];
+  const items = [];
+  const push = (id, name) => {
+    if (id && !items.some((x) => x.id === id)) items.push({ id, name: name || null });
+  };
+  push(S.savedModelId); // 已保存模型排最前,保证「记忆默认值」始终可选
+  (presetOf($('llm-preset').value)?.models || []).forEach((m) => push(m));
+  return items;
+}
+
+function modelLabelOf(id) {
+  const it = (S.modelItems || []).find((x) => x.id === id);
+  return it ? (it.name || it.id) : (id || '');
+}
+
+/** 按当前服务商重算候选并回显;列表展开中则同步重绘(否则已展开的旧内容/空态不会消失)。默认值 = 已保存模型(记忆)在候选里则用它,否则取第一个候选 */
+function refreshModelOptions() {
+  S.modelItems = currentCandidates();
+  S.modelValue = S.modelItems.some((it) => it.id === S.savedModelId)
+    ? S.savedModelId
+    : (S.modelItems[0]?.id || '');
+  $('llm-model-search').value = modelLabelOf(S.modelValue);
+  const list = document.querySelector('#llm-model-picker .model-picker-list');
+  if (list && !list.hidden) renderModelList(true, '');
+}
+
+function applyPresetSelection(fromUser) {
+  const p = presetOf($('llm-preset').value);
+  const bu = $('llm-baseurl');
+  bu.readOnly = false; // 预设也开放修改(如自建中转站换地址)
+  if (p && p.id !== 'custom') {
+    // 用户主动切换 → 自动填充预设地址;打开弹窗 → 仅地址为空时补默认,不覆盖已存的中转站地址
+    if (fromUser || !bu.value.trim()) bu.value = p.baseUrl;
+  } else if (p) {
+    bu.placeholder = 'https://…/v1(OpenAI 兼容,可填中转站地址)';
+  }
+  // 切服务商 = 候选切到该服务商自己的(拉取过 → 拉取结果整体替换;否则 预设 + 已存);API key 不受影响
+  refreshModelOptions();
+}
+
+/** 渲染候选列表;query 为过滤词(与输入框回显的已选模型名解耦)。显示 name,提交 id。 */
+function renderModelList(show, query) {
+  const list = document.querySelector('#llm-model-picker .model-picker-list');
+  const input = $('llm-model-search');
+  const q = (query ?? '').trim().toLowerCase();
+  const hits = (S.modelItems || []).filter((it) =>
+    !q || it.id.toLowerCase().includes(q) || (it.name || '').toLowerCase().includes(q));
+  list.innerHTML = '';
+  if (!hits.length) {
+    const empty = document.createElement('div');
+    empty.className = 'model-picker-empty';
+    empty.textContent = S.modelItems.length ? '无匹配模型' : '尚无候选:点上方「测试连通」自动拉取';
+    list.appendChild(empty);
+  } else {
+    for (const it of hits) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'model-picker-item' + (it.id === S.modelValue ? ' on' : '');
+      item.textContent = it.name || it.id;
+      item.title = it.name && it.name !== it.id ? `${it.name} · ${it.id}` : it.id;
+      item.onmousedown = (e) => e.preventDefault(); // 不抢 blur,先让点击落地
+      item.onclick = () => {
+        S.modelValue = it.id;
+        input.value = it.name || it.id;
+        list.hidden = true;
+      };
+      list.appendChild(item);
+    }
+  }
+  list.hidden = !show;
+}
+
+function initModelPicker() {
+  S.modelItems = [];
+  S.modelValue = '';
+  S.savedModelId = '';
+  S.fetchedModels = new Map(); // providerKey → 该服务商「测试连通」拉取的模型项
+  const input = $('llm-model-search');
+  const list = document.querySelector('#llm-model-picker .model-picker-list');
+  // 聚焦:全量展示候选(过滤词清空),并全选已选文本——键入即过滤
+  input.addEventListener('focus', () => {
+    input.select();
+    renderModelList(true, '');
+  });
+  input.addEventListener('input', () => renderModelList(true, input.value));
+  // 失焦收起列表,输入框回显已选模型名(敲入的只是过滤词,不是值)
+  input.addEventListener('blur', () => setTimeout(() => {
+    list.hidden = true;
+    input.value = modelLabelOf(S.modelValue);
+  }, 150));
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#llm-model-picker')) list.hidden = true;
+  });
 }
 
 function getModelValue() {
-  const input = $('llm-model-input');
-  if (!input.hidden) return input.value.trim();
-  const v = $('llm-model-select').value;
-  return v === '__custom__' ? '' : v;
+  return S.modelValue || '';
 }
 
 function setStatusLine(id, html, cls) {
@@ -922,7 +1076,7 @@ function currentLlmFields() {
   const p = presetOf(presetId);
   return {
     preset: presetId,
-    baseUrl: p && p.id !== 'custom' ? p.baseUrl : $('llm-baseurl').value.trim(),
+    baseUrl: $('llm-baseurl').value.trim(),
     model: getModelValue(),
     apiKey: $('llm-key').value.trim() || undefined, // 留空 → 后端用已存
   };
@@ -938,9 +1092,21 @@ async function testLlmFromUI() {
       body: JSON.stringify(currentLlmFields()),
     });
     if (r.ok) {
-      const modelsNote = r.models?.length ? `,发现 ${r.models.length} 个模型(已填入下拉)` : '';
+      const modelsNote = r.models?.length ? `,发现 ${r.models.length} 个模型(下拉已更新)` : '';
       setStatusLine('test-llm-status', `✓ 连通正常,延迟 ${r.latencyMs} ms${modelsNote}`, 'ok');
-      if (r.models?.length) fillModelOptions(r.models, getModelValue() || undefined);
+      if (r.models?.length) {
+        // 后端两种返回都归一为 {id,name}:旧版进程返回字符串数组 ['id',…],新版返回 [{id,name}]
+        // (常驻服务不热重载,前端必须兼容运行中进程的旧结构,否则 id 取不到、候选被滤空)
+        const norm = r.models
+          .map((m) => (typeof m === 'string' ? { id: m, name: null } : m))
+          .filter((m) => m && typeof m.id === 'string' && m.id)
+          .map((m) => ({ id: m.id, name: typeof m.name === 'string' && m.name ? m.name : null }));
+        if (norm.length) {
+          // 拉取结果挂在当前服务商名下,整体替换该服务商的候选,不混入别家
+          S.fetchedModels.set(providerKey(), norm);
+          refreshModelOptions(); // 重算候选 + 回显;展开中的列表同步重绘,点开输入框也始终是最新
+        }
+      }
     } else {
       setStatusLine('test-llm-status', `✗ ${esc(r.error || '测试失败')}`, 'err');
     }
@@ -1107,21 +1273,12 @@ document.addEventListener('keydown', (e) => {
     else if (!$('info-popover').hidden) $('info-popover').hidden = true;
     return;
   }
-  if (isTypingTarget(e) || e.ctrlKey || e.metaKey || e.altKey) return;
-  const modalOpen = !$('consent-modal').hidden || !$('settings-modal').hidden;
-  if (modalOpen) return;
-  if (!$('viewer').hidden) {
-    if (e.key === '[') { e.preventDefault(); switchDoc(-1); }
-    else if (e.key === ']') { e.preventDefault(); switchDoc(1); }
-    return;
-  }
-  if (e.key === '/') { e.preventDefault(); $('search').focus(); $('search').select(); return; }
-  if (e.key === 'j' || e.key === 'J') { e.preventDefault(); moveCardFocus(1); return; }
-  if (e.key === 'k' || e.key === 'K') { e.preventDefault(); moveCardFocus(-1); return; }
-  // ↑↓ 仅在卡片已聚焦时接管(roving),不抢页面滚动
-  if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && document.activeElement?.classList?.contains('card')) {
+  // 唯一快捷键:Ctrl+K 聚焦搜索框
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
     e.preventDefault();
-    moveCardFocus(e.key === 'ArrowDown' ? 1 : -1);
+    const search = $('search');
+    search.focus();
+    search.select();
   }
 });
 

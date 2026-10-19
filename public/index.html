@@ -25,14 +25,18 @@
           <img src="/logo.png" alt="" width="34" height="34">
         </span>
         <span class="brand-name">Skill 全览</span>
-        <span class="brand-sub" id="stats-line">加载中…</span>
       </div>
       <div class="topbar-actions">
-        <input id="search" class="search" type="search" placeholder="搜索名称 / 描述 / 分类 / 仓库…" autocomplete="off">
+        <input id="search" class="search" type="search" placeholder="搜索名称 / 描述 / 分类 / 仓库…  Ctrl+K" autocomplete="off">
         <button id="btn-update" class="btn" title="重新扫描与分析(增量,内容未变不调 API;此时才会批量预翻译入口文档)"><span class="ic">⟳</span>手动更新</button>
         <button id="btn-organize" class="btn btn-ghost" title="多选技能,手动归入仓库或确认推断"><span class="ic">☰</span><span id="organize-label">整理归属</span></button>
         <button id="btn-settings" class="btn btn-ghost" title="配置翻译 / LLM(API key 加密存储)">⚙ 设置</button>
         <button id="btn-info" class="btn btn-ghost" title="隐私说明 / provider 状态 / 积分">ⓘ</button>
+        <div class="density-toggle" role="radiogroup" aria-label="显示密度" title="显示密度">
+          <span class="density-toggle-label">显示密度</span>
+          <label class="density-opt"><input type="radio" name="density" value="comfortable">舒适</label>
+          <label class="density-opt"><input type="radio" name="density" value="compact">紧凑</label>
+        </div>
       </div>
       <div id="progress-wrap" class="progress-wrap" hidden>
         <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
@@ -47,6 +51,15 @@
         <button id="btn-cancel-select" class="btn btn-ghost">取消</button>
       </div>
     </header>
+
+    <div id="stats-bar" class="stats-bar" hidden>
+      <span class="stat"><b id="st-skills">–</b><i>技能</i></span>
+      <span class="stat"><b id="st-repos">–</b><i>仓库</i></span>
+      <span class="stat"><b id="st-attr">–</b><i>已归属</i></span>
+      <button class="stat stat-link" id="st-infer" type="button" hidden><b>–</b><i>待确认推断</i></button>
+      <span class="stat stat-match" id="st-match" hidden><b id="st-match-n">–</b><i id="st-match-label">匹配</i></span>
+      <span class="stat-error" id="stats-line" hidden></span>
+    </div>
 
     <div class="toolbar">
       <div id="category-chips" class="chips"></div>
@@ -104,6 +117,7 @@
 
       <section class="settings-section">
         <h3>翻译服务(UApiPro · 中英对照)</h3>
+        <p class="section-hint">还没有账号?到 <a href="https://uapis.cn/console" target="_blank" rel="noreferrer">UApiPro 控制台 ↗</a> 注册并获取 API key(新用户有免费额度,<a href="https://uapis.cn/pricing" target="_blank" rel="noreferrer">定价说明 ↗</a>)。</p>
         <div class="field-row">
           <label for="set-translate-key">API key</label>
           <input id="set-translate-key" type="password" autocomplete="off" placeholder="未配置">
@@ -118,13 +132,14 @@
 
       <section class="settings-section">
         <h3>LLM 服务(中文概述 + 归属推断)</h3>
+        <p class="section-hint">没有 key?在所选服务商官网注册(DeepSeek / 智谱开放平台),粘贴到下方即可。</p>
         <div class="field-row">
           <label for="llm-preset">预设</label>
           <select id="llm-preset"></select>
         </div>
         <div class="field-row">
           <label for="llm-baseurl">API 地址</label>
-          <input id="llm-baseurl" type="text" placeholder="https://…/v1">
+          <input id="llm-baseurl" type="text" placeholder="https://…/v1(选预设自动填充,可修改)">
         </div>
         <div class="field-row">
           <label for="llm-key">API key</label>
@@ -135,23 +150,13 @@
           <button id="btn-test-llm" class="btn">测试连通</button>
         </div>
         <div id="test-llm-status" class="status-line"></div>
-        <div class="field-row">
-          <label for="llm-model-select">模型</label>
-          <select id="llm-model-select"></select>
-          <input id="llm-model-input" type="text" placeholder="输入模型名" hidden>
+        <div class="field-row model-picker-row">
+          <label for="llm-model-search">模型</label>
+          <div class="model-picker" id="llm-model-picker">
+            <input id="llm-model-search" type="text" autocomplete="off" spellcheck="false" placeholder="无可用模型:先「测试连通」拉取,或输入关键字筛选">
+            <div class="model-picker-list" hidden></div>
+          </div>
         </div>
-      </section>
-
-      <section class="settings-section">
-        <h3>外观(仅本机生效,即时预览)</h3>
-        <div class="field-row">
-          <label for="app-density">密度</label>
-          <select id="app-density">
-            <option value="comfortable">舒适</option>
-            <option value="compact">紧凑</option>
-          </select>
-        </div>
-        <p class="status-line">键盘:j / k 或 ↑↓ 在卡片间移动,Enter 打开;「/」聚焦搜索;查看器内「[」「]」切换文档。</p>
       </section>
 
       <section class="settings-section" id="desktop-section" hidden>
