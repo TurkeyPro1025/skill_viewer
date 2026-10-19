@@ -108,12 +108,25 @@ fn defaults_value() -> Value {
     })
 }
 
+/// 共享配置的约定位置(与 Node lib/config.js 对齐):放一份 config.json
+/// 即可让网页版与桌面版天然使用同一 dataDir,无需启动参数。
+fn shared_config_path() -> PathBuf {
+    let base = std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home_dir().join(".config"));
+    base.join("skill-viewer").join("config.json")
+}
+
 pub fn load_config(config_file: Option<&Path>) -> Config {
     let found: Option<PathBuf> = config_file
         .map(|p| p.to_path_buf())
         .or_else(|| {
             let cwd = std::env::current_dir().ok()?;
             std::fs::metadata(cwd.join("config.json")).is_ok().then(|| cwd.join("config.json"))
+        })
+        .or_else(|| {
+            let shared = shared_config_path();
+            std::fs::metadata(&shared).is_ok().then_some(shared)
         })
         .filter(|p| p.exists());
     let base_dir = found
