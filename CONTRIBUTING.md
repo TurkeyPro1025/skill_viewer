@@ -5,12 +5,24 @@
 ## 开发环境
 
 ```bash
-git clone <repo> && cd skill-viewer
+git clone https://github.com/TurkeyPro1025/skill_viewer.git && cd skill_viewer
 node server.js          # 直接跑,零依赖
 npm test                # 黑盒测试:fixture 技能树 + stub provider,不需要任何真实 API key
 ```
 
 要求 Node ≥ 20。测试只通过 **HTTP API 黑盒**断言(spec 的测试决策),请在新增功能时保持这条纪律:不断言模块内部实现细节,只断言 API 响应与缓存文件产物。
+
+## 构建桌面安装包
+
+桌面版是 Tauri 2 应用,服务层由 Rust 重实现并内嵌 `public/`。需要 Rust 工具链与 Tauri 的 Windows 构建依赖(WebView2、NSIS 等,见 [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)):
+
+```bash
+cd desktop
+npm install
+npx tauri build
+```
+
+产物为 `desktop/target/release/skill-viewer-desktop.exe`(便携版)与 `desktop/target/release/bundle/nsis/` 下的安装包。
 
 ## 扩展点一:注册新的安装清单识别器
 
