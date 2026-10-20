@@ -250,6 +250,10 @@ pub fn scan(roots: &[PathBuf]) -> ScanResult {
         let entries = match std::fs::read_dir(root) {
             Ok(e) => e,
             Err(err) => {
+                // 全量默认根下,未安装该工具属常态:目录不存在静默跳过,不进 ignored 噪音
+                if err.kind() == std::io::ErrorKind::NotFound {
+                    continue;
+                }
                 ignored.push(Ignored {
                     name: root.file_name().map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_else(|| root.to_string_lossy().to_string()),

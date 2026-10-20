@@ -55,8 +55,22 @@ impl Default for TranslateCfg {
 }
 
 fn default_roots() -> Vec<PathBuf> {
-    ["~/.agents/skills", "~/.zcode/skills", "~/.claude/skills"]
-        .iter().map(|s| expand_home(s)).collect()
+    // 全量支持根:与 lib/config.js DEFAULTS.roots、config.example.json 同步维护
+    [
+        "~/.agents/skills", "~/.claude/skills", "~/.codex/skills", "~/.cursor/skills",
+        "~/.copilot/skills", "~/.gemini/skills", "~/.codeium/windsurf/skills", "~/.qwen/skills",
+        "~/.trae/skills", "~/.roo/skills", "~/.config/opencode/skills", "~/.zcode/skills",
+        "~/.workbuddy/skills", "~/.adal/skills",
+        "~/.gemini/antigravity/skills", "~/.augment/skills", "~/.openclaw-autoclaw/skills",
+        "~/.codebuddy/skills", "~/.commandcode/skills", "~/.continue/skills",
+        "~/.snowflake/cortex/skills", "~/.config/crush/skills", "~/.dsh/skills",
+        "~/.factory/skills", "~/.config/goose/skills", "~/.hermes/skills", "~/.iflow/skills",
+        "~/.junie/skills", "~/.kilocode/skills", "~/.kiro/skills", "~/.kode/skills",
+        "~/.mcpjam/skills", "~/.vibe/skills", "~/.mux/skills", "~/.neovate/skills",
+        "~/.openclaw/skills", "~/.openhands/skills", "~/.pi/agent/skills", "~/.pochi/skills",
+        "~/.qoder/skills", "~/.trae-cn/skills", "~/.zencoder/skills",
+    ]
+    .iter().map(|s| expand_home(s)).collect()
 }
 
 pub fn expand_home(p: &str) -> PathBuf {
