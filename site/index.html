@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skill 译站 · 装进来的几十个 Skill，逐段读懂</title>
+  <meta name="description" content="把 skills CLI 装出的几十个技能整理成「仓库 → 子技能」的本地知识库：中英对照逐段阅读、lock 归属、多根去重、分类速查。本地扫描、无账号、无遥测。">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" type="image/png" href="logo.png">
+  <meta property="og:title" content="Skill 译站 · 中英对照的本地 Skill 知识库">
+  <meta property="og:description" content="来源归属清清楚楚，左原文右中文逐段对照；只读技能目录，不安装、不卸载。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://turkeypro1025.github.io/skills-lingo/">
+  <meta property="og:image" content="https://turkeypro1025.github.io/skills-lingo/logo.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主内容</a>
+
+  <!-- 0. 粘性玻璃导航 -->
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#top" aria-label="回到顶部">
+        <img class="brand-logo" src="logo.png" alt="" width="28" height="28">
+        <span class="brand-text">
+          <span class="brand-name">Skill 译站</span>
+          <span class="brand-sub">中英对照学习</span>
+        </span>
+      </a>
+      <nav class="nav-links" aria-label="页面导航">
+        <a href="#why">为什么</a>
+        <a href="#features">特性</a>
+        <a href="#compat">兼容</a>
+        <a href="#security">安全</a>
+        <a href="#faq">常见问题</a>
+      </nav>
+      <div class="nav-actions">
+        <a class="nav-gh" href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener" aria-label="GitHub 仓库">
+          <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+        <a class="btn btn-primary" href="#download">下载</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- 1. Hero -->
+    <section class="hero" id="top">
+      <div class="wrap">
+        <p class="hero-badge">MIT 开源 · v0.1.0 · 本地优先</p>
+        <h1 class="hero-title">装进来的几十个 Skill，<span class="grad">逐段读懂</span></h1>
+        <p class="hero-sub">Skill 译站把 skills CLI 装出的技能整理成「仓库 → 子技能」的本地知识库：来源归属清清楚楚，左原文右中文逐段对照，中文概述与分类帮你选对要用的那一个。只读技能目录，不安装、不卸载。</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo/releases/latest" target="_blank" rel="noopener">↓ 下载桌面版</a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener">GitHub 查看源码</a>
+        </div>
+        <ul class="hero-trust">
+          <li>✓ MIT 免费开源</li>
+          <li>✓ 密钥系统级加密</li>
+          <li>✓ 本地扫描，无账号、无遥测</li>
+        </ul>
+      </div>
+
+      <!-- 界面演示:可交互 mock(真实种子数据,可搜索/点分类/点仓库树;翻译与整理在完整版中) -->
+      <div class="wrap mock-wrap">
+        <div class="mock" role="region" aria-label="界面演示(可交互):可搜索技能、点击分类胶囊与仓库树筛选;翻译与整理能力在完整版中">
+          <div class="mock-chrome">
+            <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+            <img class="mock-logo" src="logo.png" alt="" width="16" height="16">
+            <span class="mock-title">Skill 译站 · 中英对照学习</span>
+            <span class="mock-demo">演示数据</span>
+          </div>
+          <div class="mock-toolbar">
+            <input class="mock-search" id="mock-q" type="search" placeholder="搜索技能、概述、分类…" aria-label="搜索技能(演示)">
+            <span class="mock-chips" id="mock-chips"></span>
+          </div>
+          <div class="mock-body">
+            <aside class="mock-tree" id="mock-tree" aria-label="仓库分组(演示)"></aside>
+            <div class="mock-reader">
+              <div class="mock-cards" id="mock-cards"></div>
+            </div>
+          </div>
+          <div class="mock-status" id="mock-status"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 它解决什么问题 -->
+    <section class="sec" id="why">
+      <div class="wrap">
+        <p class="kicker">WHY</p>
+        <h2>装得越多，越读不过来</h2>
+        <p class="lead">skills CLI 把一个仓库的几十个子技能平铺装进本地目录，又被多个工具根共享。时间一长——</p>
+        <div class="grid grid-3">
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">📖</div>
+            <h3>读不懂</h3>
+            <p>SKILL.md 几乎全是英文，几十篇逐个啃，读到一半就放弃。</p>
+            <p class="fix"><b>→ 译站</b>左原文右中文，逐段对照，边读边学。</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">❓</div>
+            <h3>来源不明</h3>
+            <p>技能文件夹混装，说不清哪个属于哪个仓库、是谁装进来的。</p>
+            <p class="fix"><b>→ 译站</b>lock 归属引擎精确归属，推断必标注。</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🧩</div>
+            <h3>重复混乱</h3>
+            <p>同一技能在 <code>.claude</code>、<code>.zcode</code>、<code>.agents</code> 多处出现，像装了好几份。</p>
+            <p class="fix"><b>→ 译站</b>真实路径合并、拷贝计数、分岔多版本。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 核心特性 -->
+    <section class="sec sec-alt" id="features">
+      <div class="wrap">
+        <p class="kicker">FEATURES</p>
+        <h2>一个只读的本地知识库</h2>
+        <p class="lead">读得懂、找得到、归属清楚。</p>
+        <div class="grid grid-3">
+          <article class="card">
+            <span class="fico fico-blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+            </span>
+            <h3>块级中英对照</h3>
+            <p>左原文右译文逐段对齐；代码块、命令、URL、路径先摘出、译后回填，永不被改写；中文文档单栏直出。</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-violet" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            </span>
+            <h3>分类速查</h3>
+            <p>不知道该调用哪个 Skill？中文概述一句话讲清「它是什么、什么时候用」；点分类胶囊或卡片标签，工程流程、写作、调试……即刻筛出候选，与搜索、仓库分组同页联动。内置种子覆盖常用技能，配置 LLM 自动补全其余。</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-green" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>
+            </span>
+            <h3>lock 归属引擎</h3>
+            <p>优先读 skills CLI 安装清单 <code>.skill-lock.json</code>；无记录时回退 <code>.git</code> 远端、frontmatter、LLM 推断，推断必标注「待确认」；手动归组最高优先。</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-amber" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </span>
+            <h3>多根去重</h3>
+            <p>junction / symlink 按真实路径合并；内容一致的独立拷贝合并并计数；同名分岔展示为多个版本。</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-cyan" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <h3>翻译学习友好</h3>
+            <p>打开才翻、未变不重翻、并发只翻一份；超长文档自动分块、全局节流；附属文档按需翻译。</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-rose" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </span>
+            <h3>桌面 + 网页双形态</h3>
+            <p>Windows 桌面版免 Node、托盘常驻；网页版 <code>node server.js</code> 即起；同一套界面与 API 契约。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. 兼容 -->
+    <section class="sec" id="compat">
+      <div class="wrap">
+        <p class="kicker">COMPAT</p>
+        <h2>支持 33 个Agent</h2>
+        <p class="lead">技能装进每个工具自己的目录，译站只读不改；同一技能多处出现时自动合并归属。</p>
+        <ul class="roots" id="roots-list">
+          <li><span class="root-ico"><img src="icons/agentskills.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/agentskills.png"></span><span class="root-meta"><span class="root-name">.agents</span><span class="root-path">~/.agents/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/claude.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/claude.png"></span><span class="root-meta"><span class="root-name">Claude</span><span class="root-path">~/.claude/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/codex.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/codex.png"></span><span class="root-meta"><span class="root-name">Codex</span><span class="root-path">~/.codex/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/cursor.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/cursor.png"></span><span class="root-meta"><span class="root-name">Cursor</span><span class="root-path">~/.cursor/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/githubcopilot.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/githubcopilot.png"></span><span class="root-meta"><span class="root-name">Copilot</span><span class="root-path">~/.copilot/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/gemini.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/gemini.png"></span><span class="root-meta"><span class="root-name">Gemini</span><span class="root-path">~/.gemini/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/dsh.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/dsh.png"></span><span class="root-meta"><span class="root-name">DeepSeek Harness</span><span class="root-path">~/.dsh/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/qwen.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/qwen.png"></span><span class="root-meta"><span class="root-name">Qwen</span><span class="root-path">~/.qwen/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/trae.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/trae.png"></span><span class="root-meta"><span class="root-name">Trae</span><span class="root-path">~/.trae/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/trae.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/trae.png"></span><span class="root-meta"><span class="root-name">Trae CN</span><span class="root-path">~/.trae-cn/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/opencode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/opencode.png"></span><span class="root-meta"><span class="root-name">OpenCode</span><span class="root-path">~/.config/opencode/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/zcode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/zcode.png"></span><span class="root-meta"><span class="root-name">ZCode</span><span class="root-path">~/.zcode/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/workbuddy.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/workbuddy.png"></span><span class="root-meta"><span class="root-name">WorkBuddy</span><span class="root-path">~/.workbuddy/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/windsurf.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/windsurf.png"></span><span class="root-meta"><span class="root-name">Windsurf</span><span class="root-path">~/.codeium/windsurf/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/augment.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/augment.png"></span><span class="root-meta"><span class="root-name">Augment</span><span class="root-path">~/.augment/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/codebuddy.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/codebuddy.png"></span><span class="root-meta"><span class="root-name">CodeBuddy</span><span class="root-path">~/.codebuddy/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/continue.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/continue.png"></span><span class="root-meta"><span class="root-name">Continue</span><span class="root-path">~/.continue/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/cortex.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/cortex.png"></span><span class="root-meta"><span class="root-name">Cortex Code</span><span class="root-path">~/.snowflake/cortex/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/droid.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/droid.png"></span><span class="root-meta"><span class="root-name">Droid</span><span class="root-path">~/.factory/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/goose.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/goose.png"></span><span class="root-meta"><span class="root-name">Goose</span><span class="root-path">~/.config/goose/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/hermes.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/hermes.png"></span><span class="root-meta"><span class="root-name">Hermes</span><span class="root-path">~/.hermes/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/iflow.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/iflow.png"></span><span class="root-meta"><span class="root-name">iFlow</span><span class="root-path">~/.iflow/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/junie.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/junie.png"></span><span class="root-meta"><span class="root-name">Junie</span><span class="root-path">~/.junie/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/kilocode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/kilocode.png"></span><span class="root-meta"><span class="root-name">Kilo Code</span><span class="root-path">~/.kilocode/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/kiro.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/kiro.png"></span><span class="root-meta"><span class="root-name">Kiro</span><span class="root-path">~/.kiro/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/kode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/kode.png"></span><span class="root-meta"><span class="root-name">Kode</span><span class="root-path">~/.kode/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/mcpjam.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/mcpjam.png"></span><span class="root-meta"><span class="root-name">MCPJam</span><span class="root-path">~/.mcpjam/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/openclaw.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/openclaw.png"></span><span class="root-meta"><span class="root-name">OpenClaw</span><span class="root-path">~/.openclaw/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/openhands.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/openhands.png"></span><span class="root-meta"><span class="root-name">OpenHands</span><span class="root-path">~/.openhands/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/pi.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/pi.png"></span><span class="root-meta"><span class="root-name">Pi</span><span class="root-path">~/.pi/agent/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/pochi.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/pochi.png"></span><span class="root-meta"><span class="root-name">Pochi</span><span class="root-path">~/.pochi/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/qoder.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/qoder.png"></span><span class="root-meta"><span class="root-name">Qoder</span><span class="root-path">~/.qoder/skills</span></span></li>
+          <li><span class="root-ico"><img src="icons/zencoder.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/zencoder.png"></span><span class="root-meta"><span class="root-name">Zencoder</span><span class="root-path">~/.zencoder/skills</span></span></li>
+        </ul>
+        <button class="roots-toggle" id="roots-toggle" type="button" aria-expanded="false" aria-controls="roots-list">展开全部</button>
+        <div class="note">
+          <span aria-hidden="true">🔒</span>
+          <p>优先读取 <a href="https://github.com/vercel-labs/skills" target="_blank" rel="noopener">vercel-labs/skills</a> 安装清单 <code>.skill-lock.json</code>，归属最准；没有记录时逐级推断并标注来源。以上为默认扫描根，可在 <code>config.json</code> 的 <code>roots</code> 自定义。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. 安全与隐私 -->
+    <section class="sec sec-alt" id="security">
+      <div class="wrap">
+        <p class="kicker">SECURITY</p>
+        <h2>安全与隐私优先</h2>
+        <div class="grid grid-4">
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🔐</div>
+            <h3>密钥加密</h3>
+            <p>只在设置页录入，经 OS 凭据库（DPAPI / Keychain / secret-tool）+ AES-256-GCM 加密落盘；界面与接口只回掩码；可随时清除。</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🏠</div>
+            <h3>只在本机</h3>
+            <p>默认只监听 127.0.0.1；所有写入请求强制同源校验，跨站伪造一律 403。</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">✉️</div>
+            <h3>外发需同意</h3>
+            <p>翻译开启前必须明确同意；LLM 可选，启用才发送；不配置时除翻译外零外发。</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🛡️</div>
+            <h3>只读不改</h3>
+            <p>不安装、不卸载、不改写任何技能文件；扫描、去重、搜索全部本地完成。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 常见问题 -->
+    <section class="sec" id="faq">
+      <div class="wrap wrap-narrow">
+        <p class="kicker">FAQ</p>
+        <h2>常见问题</h2>
+        <div class="faq">
+          <details open>
+            <summary>不配置翻译和 LLM，能用吗？<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>能。浏览、归属、去重、搜索全部可用；中英对照需配置翻译服务；概述与分类对常用技能有内置种子，配置 LLM 后自动补全其余。</p>
+          </details>
+          <details>
+            <summary>API key 存在哪里？安全吗？<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>经 OS 凭据库 + AES-256-GCM 加密后落盘，任何文件没有明文；界面只显示掩码（前3***后4）；凭据复制到其他机器无法解密，可随时清除。</p>
+          </details>
+          <details>
+            <summary>会改动我的技能文件吗？<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>不会。只读扫描技能目录；手动归组等操作只写在自己的数据目录里。</p>
+          </details>
+          <details>
+            <summary>分类标签从哪里来？<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>内置种子覆盖 vercel-labs/skills 等常用技能；配置 LLM 后自动为无种子的技能生成中文概述与 1-3 个分类标签；点技能卡上的标签即可筛选。</p>
+          </details>
+          <details>
+            <summary>桌面版支持 macOS / Linux 吗？<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>桌面安装包目前仅 Windows；网页版（Node ≥ 20）跨平台，密钥在 macOS / Linux 走 Keychain / secret-tool。</p>
+          </details>
+          <details>
+            <summary>翻译怎么计费？<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>走 UApiPro AI 翻译接口，每次调用 4 积分；超长文档自动分块，按调用次数计；内容未变不重复调用，同一文档并发只翻一份。</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. 下载 -->
+    <section class="sec sec-alt" id="download">
+      <div class="wrap">
+        <p class="kicker">DOWNLOAD</p>
+        <h2>下载 Skill 译站</h2>
+        <p class="lead">v0.1.0 · MIT · Windows 桌面版 + 跨平台网页版</p>
+        <div class="grid grid-2">
+          <article class="card dl-card">
+            <h3>桌面版（Windows，推荐）</h3>
+            <ul class="dl-list">
+              <li>安装版 setup.exe / 便携版 portable.exe</li>
+              <li>默认托盘常驻，关窗最小化</li>
+              <li>WebView2 系统一般自带</li>
+            </ul>
+            <a class="btn btn-primary" href="https://github.com/TurkeyPro1025/skills-lingo/releases/latest" target="_blank" rel="noopener">前往 GitHub Releases</a>
+            <p class="warn">⚠ 安装包未做代码签名，Windows 可能提示「未知发布者」，选择「仍要运行」即可。</p>
+          </article>
+          <article class="card dl-card">
+            <h3>网页版（源码运行）</h3>
+            <p>Node.js ≥ 20，零 npm 依赖。</p>
+            <div class="code-block">
+              <button class="copy-btn" id="copy-btn" type="button">复制</button>
+              <pre id="install-cmd"><code>git clone https://github.com/TurkeyPro1025/skills-lingo.git
+cd skills-lingo
+node server.js</code></pre>
+            </div>
+            <p class="dl-hint">打开 <code>http://127.0.0.1:4763</code> 即用。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 8. 页脚 -->
+  <footer class="footer">
+    <div class="wrap footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="#top">
+          <img class="brand-logo" src="logo.png" alt="" width="28" height="28">
+          <span class="brand-name">Skill 译站</span>
+        </a>
+        <p>把装进来的 Skill，整理成读得懂的本地知识库。</p>
+      </div>
+      <nav aria-label="源码">
+        <h4>源码</h4>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/issues" target="_blank" rel="noopener">Issues</a>
+      </nav>
+      <nav aria-label="文档">
+        <h4>文档</h4>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/README.md" target="_blank" rel="noopener">README</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">CONTRIBUTING</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/LICENSE" target="_blank" rel="noopener">LICENSE</a>
+      </nav>
+    </div>
+    <div class="footer-bar">© 2026 Skill 译站 · MIT License · 只读工具，不安装、不卸载。</div>
+  </footer>
+</body>
+</html>

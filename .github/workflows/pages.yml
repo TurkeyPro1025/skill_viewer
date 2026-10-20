@@ -1,0 +1,33 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+
+# 部署 site/ 静态站到 GitHub Pages
+# 一次性手动设置:仓库 Settings → Pages → Source 切到 GitHub Actions
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时刻只保留一次部署,新推送取消进行中的旧部署
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # 纯静态站,无需构建步骤
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
