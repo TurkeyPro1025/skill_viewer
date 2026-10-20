@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * skill-viewer — 轻量只读的本地 Skill 知识库
+ * skills-lingo — 轻量只读的本地 Skill 知识库
  * 用法: node server.js [--port 4763] [--config config.json] [--no-scan]
  * 打开 http://127.0.0.1:4763 即可使用。
  */
@@ -74,7 +74,7 @@ async function main() {
   }
 
   server.listen(config.port, config.host, () => {
-    console.log(`skill-viewer 已启动: http://${config.host}:${config.port}`);
+    console.log(`skills-lingo 已启动: http://${config.host}:${config.port}`);
     console.log(`  技能根目录: ${config.roots.join(', ')}`);
     console.log(`  安装清单:   ${config.lockFiles.join(', ')}`);
     console.log(`  缓存目录:   ${config.dataDir}`);

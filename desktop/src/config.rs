@@ -114,7 +114,7 @@ fn shared_config_path() -> PathBuf {
     let base = std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(|| home_dir().join(".config"));
-    base.join("skill-viewer").join("config.json")
+    base.join("skills-lingo").join("config.json")
 }
 
 pub fn load_config(config_file: Option<&Path>) -> Config {

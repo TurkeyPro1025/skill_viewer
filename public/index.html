@@ -11,7 +11,7 @@
     (function () {
       document.documentElement.dataset.theme = 'light';
       try {
-        var a = JSON.parse(localStorage.getItem('skill-viewer:appearance') || '{}');
+        var a = JSON.parse(localStorage.getItem('skills-lingo:appearance') || '{}');
         if (a.density === 'compact') document.documentElement.dataset.density = a.density;
       } catch (e) { /* 忽略损坏的本地存储 */ }
     })();

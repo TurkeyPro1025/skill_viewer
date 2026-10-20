@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 
-const SALT: &[u8] = b"skill-viewer/credentials/v1";
+const SALT: &[u8] = b"skills-lingo/credentials/v1";
 const KEY_LEN: usize = 32;
 
 pub struct CredentialStore {

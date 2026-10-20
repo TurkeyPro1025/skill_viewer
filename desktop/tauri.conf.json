@@ -1,9 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Skill 译站",
-  "mainBinaryName": "skill-viewer-desktop",
+  "productName": "Skills Lingo",
+  "mainBinaryName": "skills-lingo-desktop",
   "version": "0.1.0",
-  "identifier": "local.skill-viewer.desktop",
+  "identifier": "local.skills-lingo.desktop",
   "build": {},
   "app": {
     "windows": [],

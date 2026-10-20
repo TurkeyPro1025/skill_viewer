@@ -44,7 +44,7 @@ function toast(msg, isError) {
 }
 
 /* ============ 外观(密度;主题固定浅色,仅本机 localStorage) ============ */
-const APPEARANCE_KEY = 'skill-viewer:appearance';
+const APPEARANCE_KEY = 'skills-lingo:appearance';
 
 function loadAppearance() {
   try {

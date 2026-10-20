@@ -1,5 +1,5 @@
 {
-  "name": "skill-viewer-desktop",
+  "name": "skills-lingo-desktop",
   "private": true,
   "scripts": {
     "tauri": "tauri",

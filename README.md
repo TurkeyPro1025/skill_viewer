@@ -26,16 +26,16 @@ Skill 译站 一次扫描就能：
 - **翻译学习友好**：中文概述、搜索与分类在同一页；附属文档打开时才翻译，英文入口文档只在你点「手动更新」时预翻；内容未变不重复调用；同一文档并发只翻一份；超长文档自动分块并全局节流。
 - **lock 归属引擎**：优先读 skills CLI 安装清单 `.skill-lock.json`；没有记录时按优先级逐级回退到 `.git` 远端、frontmatter 来源（标注“创作上游”）和 LLM 推断（标注“待确认”）；手动归组永远最高优先级。
 - **多根去重**：junction/symlink 按真实路径合并；内容一致的独立拷贝合并并计数；同名分岔展示为多个版本。
-- **双形态**：网页版（Node ≥ 20）与桌面版（免 Node、托盘常驻）共用同一套界面与 API 契约。两者默认各用独立的数据目录（网页版为启动目录下的 `data/`，桌面版为 `%APPDATA%\skill-viewer`）；把 `config.json` 放到 `%APPDATA%\skill-viewer\`（写 `dataDir` 指向目标目录），两端即自动共用同一数据空间，无需启动参数。
+- **双形态**：网页版（Node ≥ 20）与桌面版（免 Node、托盘常驻）共用同一套界面与 API 契约，**默认指向同一数据目录**（Windows 为 `%APPDATA%\skills-lingo`）——一端翻译过的文档，另一端打开即有译文，无需任何配置。想分开存放或自定义位置时，用 `config.json` 的 `dataDir` 覆盖即可。
 
 ## 安装与使用
 
-### 桌面版（Windows，推荐）
+### 桌面版（推荐，暂仅支持Windows）
 
-从 [GitHub Releases](https://github.com/TurkeyPro1025/skill_viewer/releases/latest) 下载：
+从 [GitHub Releases](https://github.com/TurkeyPro1025/skills-lingo/releases/latest) 下载：
 
-- 安装版：`Skill 译站_<版本>_x64-setup.exe`；
-- 免安装便携版：`Skill 译站_<版本>_x64-portable.exe`。
+- 安装版：`Skills Lingo_<版本>_x64-setup.exe`(推荐)；
+- 免安装便携版：`Skills Lingo_<版本>_x64-portable.exe`。
 
 以 Releases 页面实际文件名为准。默认托盘常驻：点关闭最小化到托盘，托盘右键退出；开机自启与“关闭即退出”可在设置页开启。安装包未做代码签名，Windows 可能提示“未知发布者”，选择“仍要运行”即可。
 
@@ -44,7 +44,7 @@ Skill 译站 一次扫描就能：
 前置：[Node.js](https://nodejs.org/) ≥ 20（零 npm 依赖，无需 `npm install`）。
 
 ```bash
-git clone https://github.com/TurkeyPro1025/skill_viewer.git
+git clone https://github.com/TurkeyPro1025/skills-lingo.git
 
 node server.js
 ```

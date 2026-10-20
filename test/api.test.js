@@ -32,13 +32,13 @@ const presets = require('../lib/llm/presets.json');
    - node:进程内 createApp(回退线,始终保留)
    - rust:spawn desktop 的 --serve 模式,密钥经与 Node 完全相同的
      加密存储格式(providers.json + credentials.enc/.masterkey)预置 */
-const IMPL = process.env.SKILL_VIEWER_TEST_IMPL === 'rust' ? 'rust' : 'node';
-const RUST_BIN = process.env.SKILL_VIEWER_RUST_BIN
-  || [path.join(__dirname, '..', 'desktop', 'target', 'release', 'skill-viewer-desktop.exe'),
-      path.join(__dirname, '..', 'desktop', 'target', 'debug', 'skill-viewer-desktop.exe')]
+const IMPL = process.env.SKILLS_LINGO_TEST_IMPL === 'rust' ? 'rust' : 'node';
+const RUST_BIN = process.env.SKILLS_LINGO_RUST_BIN
+  || [path.join(__dirname, '..', 'desktop', 'target', 'release', 'skills-lingo-desktop.exe'),
+      path.join(__dirname, '..', 'desktop', 'target', 'debug', 'skills-lingo-desktop.exe')]
     .find((p) => fs.existsSync(p));
 
-const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-viewer-test-'));
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'skills-lingo-test-'));
 const FIXTURES = path.join(TMP, 'fixtures');
 const DATA = path.join(TMP, 'data');
 
@@ -875,11 +875,15 @@ test('22 配置发现:共享目录回退生效,显式配置仍最优先', () => 
   );
 
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'sv-cfg-'));
+  // 默认数据目录:与桌面端 desktop_data_dir() 对齐(开箱即共用同一数据空间)
+  const { DEFAULTS } = require('../lib/config');
+  assert.ok(String(DEFAULTS.dataDir).includes('skills-lingo'), `默认 dataDir 为平台数据目录(${DEFAULTS.dataDir})`);
+  assert.notEqual(DEFAULTS.dataDir, 'data');
   const fakeAppData = path.join(sandbox, 'appdata');
   const fakeCwd = path.join(sandbox, 'cwd');
-  fs.mkdirSync(path.join(fakeAppData, 'skill-viewer'), { recursive: true });
+  fs.mkdirSync(path.join(fakeAppData, 'skills-lingo'), { recursive: true });
   fs.mkdirSync(fakeCwd, { recursive: true });
-  const shared = path.join(fakeAppData, 'skill-viewer', 'config.json');
+  const shared = path.join(fakeAppData, 'skills-lingo', 'config.json');
   fs.writeFileSync(shared, JSON.stringify({ dataDir: path.join(sandbox, 'shared-data') }));
 
   const prevAppData = process.env.APPDATA;

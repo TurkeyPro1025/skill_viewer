@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const EXE = path.join(__dirname, '..', '..', 'desktop', 'target', 'release', 'skill-viewer-desktop.exe');
+const EXE = path.join(__dirname, '..', '..', 'desktop', 'target', 'release', 'skills-lingo-desktop.exe');
 const PRESETS = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'lib', 'llm', 'presets.json'), 'utf8'));
 const deepseek = PRESETS.presets.find((p) => p.id === 'deepseek');
 

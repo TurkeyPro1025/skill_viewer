@@ -101,7 +101,7 @@ async fn fallback(req: Request) -> Response {
 }
 
 async fn log_requests(req: Request, next: Next) -> Response {
-    if cfg!(debug_assertions) || std::env::var_os("SKILL_VIEWER_VERBOSE").is_some() {
+    if cfg!(debug_assertions) || std::env::var_os("SKILLS_LINGO_VERBOSE").is_some() {
         eprintln!("[http] {} {}", req.method(), req.uri().path());
     }
     next.run(req).await

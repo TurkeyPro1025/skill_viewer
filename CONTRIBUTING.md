@@ -5,7 +5,7 @@
 ## 开发环境
 
 ```bash
-git clone https://github.com/TurkeyPro1025/skill_viewer.git && cd skill_viewer
+git clone https://github.com/TurkeyPro1025/skills-lingo.git && cd skills-lingo
 node server.js          # 直接跑,零依赖
 npm test                # 黑盒测试:fixture 技能树 + stub provider,不需要任何真实 API key
 ```
@@ -22,7 +22,7 @@ npm install
 npx tauri build
 ```
 
-产物为 `desktop/target/release/skill-viewer-desktop.exe`(便携版)与 `desktop/target/release/bundle/nsis/` 下的安装包。
+产物为 `desktop/target/release/skills-lingo-desktop.exe`(便携版)与 `desktop/target/release/bundle/nsis/` 下的安装包。
 
 ## 扩展点一:注册新的安装清单识别器
 
@@ -66,14 +66,14 @@ module.exports = {
 - **密钥安全**(`lib/credentials.js` / `desktop/src/credentials.rs`):网页设置页保存的 API key 经 OS 凭据库主密钥 + AES-256-GCM 加密落盘;新增任何需要密钥的 provider 时,密钥读取必须走加密存储,严禁明文落盘或明文回传 API;状态变更端点必须经过同源校验。
 - **双实现同步**:服务层有 Node(`lib/`)与 Rust(`desktop/src/`)两份实现,共享同一 API 契约与缓存/凭据文件格式。改契约或文件格式时**两边都要改**,并跑两套测试(见下);新扩展点先在 Node 侧落地,Rust 侧跟进移植。
 - 中文优先:界面与文档文案用中文,代码注释说明"为什么"。
-- 提交前 `npm test` 全绿(涉及 Rust 侧再跑 `SKILL_VIEWER_TEST_IMPL=rust npm test`);涉及真实外部服务的行为改动,请在 stub 里同步模拟。
+- 提交前 `npm test` 全绿(涉及 Rust 侧再跑 `SKILLS_LINGO_TEST_IMPL=rust npm test`);涉及真实外部服务的行为改动,请在 stub 里同步模拟。
 - 种子概述数据在 `seeds/summaries.json` 维护,不硬编码在代码里;欢迎为更多知名仓库补充人工概述。LLM 预设在 `lib/llm/presets.json`,欢迎补充新服务商。
 
 ## 测试
 
 ```bash
 npm test                                  # Node 实现(28 项,回退线,始终保留)
-SKILL_VIEWER_TEST_IMPL=rust npm test      # Rust 实现(spawn desktop --serve,27 项 + 1 白盒跳过)
+SKILLS_LINGO_TEST_IMPL=rust npm test      # Rust 实现(spawn desktop --serve,27 项 + 1 白盒跳过)
 ```
 
 ## UI 手动验收清单

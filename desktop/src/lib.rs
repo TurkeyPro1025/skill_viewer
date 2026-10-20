@@ -66,12 +66,12 @@ pub async fn build_app(cfg: config::Config, desktop: bool) -> Arc<App> {
     })
 }
 
-/// 桌面版默认数据目录:%APPDATA%\skill-viewer
+/// 桌面版默认数据目录:%APPDATA%\skills-lingo
 pub fn desktop_data_dir() -> PathBuf {
     let base = std::env::var_os("APPDATA")
         .map(PathBuf::from)
         .unwrap_or_else(config::home_dir);
-    base.join("skill-viewer")
+    base.join("skills-lingo")
 }
 
 /// 在共享 runtime 上启动 HTTP 服务,返回实际监听端口(阻塞至就绪)。
@@ -106,7 +106,7 @@ pub fn run() {
     let args: Vec<String> = std::env::args().collect();
 
     // --serve:无窗口服务模式(黑盒测试 / 高级用法),不自动分析
-    // 用法:skill-viewer-desktop --serve [--port N] [--config config.json]
+    // 用法:skills-lingo-desktop --serve [--port N] [--config config.json]
     if args.iter().any(|a| a == "--serve") {
         let port = flag_value(&args, "--port").and_then(|v| v.parse().ok()).unwrap_or(0);
         let config_file = flag_value(&args, "--config").map(PathBuf::from);
