@@ -15,6 +15,7 @@
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="style.css">
   <script defer src="app.js"></script>
+  <script defer src="demo.js"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主内容</a>
@@ -64,26 +65,36 @@
         </ul>
       </div>
 
-      <!-- 界面演示:可交互 mock(真实种子数据,可搜索/点分类/点仓库树;翻译与整理在完整版中) -->
+      <!-- 界面演示:交互逻辑裁剪移植自应用本体的搜索/分类/分组/原文译文对照,演示数据可交互 -->
       <div class="wrap mock-wrap">
-        <div class="mock" role="region" aria-label="界面演示(可交互):可搜索技能、点击分类胶囊与仓库树筛选;翻译与整理能力在完整版中">
+        <div class="mock" role="region" aria-label="界面演示(可交互):可搜索技能、点击分类胶囊筛选、折叠仓库分组;点击卡片打开原文译文对照阅读">
           <div class="mock-chrome">
             <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
             <img class="mock-logo" src="logo.png" alt="" width="16" height="16">
             <span class="mock-title">Skill 译站 · 中英对照学习</span>
             <span class="mock-demo">演示数据</span>
           </div>
-          <div class="mock-toolbar">
-            <input class="mock-search" id="mock-q" type="search" placeholder="搜索技能、概述、分类…" aria-label="搜索技能(演示)">
-            <span class="mock-chips" id="mock-chips"></span>
-          </div>
-          <div class="mock-body">
-            <aside class="mock-tree" id="mock-tree" aria-label="仓库分组(演示)"></aside>
-            <div class="mock-reader">
-              <div class="mock-cards" id="mock-cards"></div>
+          <div class="demo-main">
+            <div class="demo-toolbar">
+              <input class="demo-search" id="demo-q" type="search" placeholder="搜索技能、概述、分类、仓库…" aria-label="搜索技能(演示)">
+              <span class="demo-stats" id="demo-stats"></span>
+            </div>
+            <div class="demo-chips" id="demo-chips"></div>
+            <div class="demo-groups" id="demo-groups"></div>
+            <p class="demo-empty" id="demo-empty" hidden>没有匹配的技能——试试更短的关键词,或再点一次高亮的分类胶囊取消筛选。</p>
+            <div class="demo-reader" id="demo-reader" hidden>
+              <div class="demo-reader-top">
+                <button class="demo-back" id="demo-back" type="button">← 返回</button>
+                <div class="demo-reader-title">
+                  <strong id="demo-skill"></strong>
+                  <span class="demo-path" id="demo-path"></span>
+                </div>
+                <span class="demo-meta" id="demo-meta"></span>
+              </div>
+              <div class="demo-view" id="demo-view"></div>
             </div>
           </div>
-          <div class="mock-status" id="mock-status"></div>
+          <div class="mock-status">演示数据(3 组 14 技能,内容取自真实种子与译文缓存) · 搜索 / 分类筛选 / 分组折叠 · 点击卡片打开原文译文对照,Esc 返回</div>
         </div>
       </div>
     </section>
