@@ -185,7 +185,7 @@ pub fn run() {
             let url: tauri::Url = format!("http://127.0.0.1:{port}/").parse().expect("valid url");
             let window_icon = tauri::image::Image::from_bytes(WINDOW_ICON_PNG)?;
             let window = tauri::WebviewWindowBuilder::new(tauri_app, "main", tauri::WebviewUrl::External(url))
-                .title("Skill 译站 · 中英对照学习")
+                .title("Skills 译站 · 中英对照学习")
                 .icon(window_icon)?
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(920.0, 600.0)
@@ -196,11 +196,11 @@ pub fn run() {
             use tauri::menu::{MenuBuilder, MenuItemBuilder};
             use tauri::tray::{TrayIconBuilder, TrayIconEvent};
             let tray_icon = tauri::image::Image::from_bytes(TRAY_ICON_PNG)?;
-            let show_item = MenuItemBuilder::with_id("show", "显示 Skill 译站").build(tauri_app)?;
+            let show_item = MenuItemBuilder::with_id("show", "显示 Skills 译站").build(tauri_app)?;
             let quit_item = MenuItemBuilder::with_id("quit", "退出").build(tauri_app)?;
             let menu = MenuBuilder::new(tauri_app).item(&show_item).separator().item(&quit_item).build()?;
             let tray = TrayIconBuilder::with_id("main-tray")
-                .tooltip("Skill 译站 · 中英对照学习")
+                .tooltip("Skills 译站 · 中英对照学习")
                 .icon(tray_icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)

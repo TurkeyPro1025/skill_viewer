@@ -1,5 +1,5 @@
 /* ============================================================
-   Skill 译站官网 · 浅色玻璃拟态(与应用 public/style.css 同源令牌)
+   Skills 译站官网 · 浅色玻璃拟态(与应用 public/style.css 同源令牌)
    - 零 CDN / 零构建;独立令牌,不跨目录 @import
    - 断点:1079(特性 3→2)/ 899(单列、演示阅读器上下堆叠)/ 639(导航收纳)
    ============================================================ */
@@ -476,6 +476,8 @@ section[id] { scroll-margin-top: 84px; }
   flex-direction: column;
   background: rgba(255, 255, 255, 0.96);
 }
+/* display:flex 会盖过 hidden 属性的 UA display:none,必须显式关掉,否则阅读器初始就盖住搜索框 */
+.demo-reader[hidden] { display: none; }
 .demo-reader-top {
   display: flex;
   align-items: center;

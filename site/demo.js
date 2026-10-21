@@ -1,4 +1,4 @@
-/* Skill 译站官网 · 交互演示(零依赖,不发任何网络请求)
+/* Skills 译站官网 · 交互演示(零依赖,不发任何网络请求)
    交互逻辑裁剪移植自 public/app.js:搜索、分类 chips、分组卡片、
    原文/译文对照阅读器与 Markdown 渲染;演示数据内联,块格式 [id, type, 原文, 译文|null]。 */
 (function () {
@@ -359,9 +359,7 @@
     S.opener = openerEl || null;
     $("demo-skill").textContent = skill.name;
     $("demo-path").textContent = doc.path;
-    $("demo-meta").innerHTML =
-      (doc.cached ? '<span class="demo-badge demo-ok">已缓存 · 0 积分</span>' : "") +
-      '<span class="demo-badge demo-violet">演示译文</span>';
+    $("demo-meta").innerHTML = '<span class="demo-badge demo-violet">演示译文</span>';
     renderBilingual(doc);
     $("demo-reader").hidden = false;
     $("demo-view").scrollTop = 0;

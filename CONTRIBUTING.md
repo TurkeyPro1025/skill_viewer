@@ -22,7 +22,7 @@ npm install
 npx tauri build
 ```
 
-产物为 `desktop/target/release/skills-lingo-desktop.exe`(便携版)与 `desktop/target/release/bundle/nsis/` 下的安装包。
+产物为 `desktop/target/release/bundle/nsis/` 下的安装包。
 
 ## 扩展点一:注册新的安装清单识别器
 

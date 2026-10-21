@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Skill 译站 · 装进来的几十个 Skill，逐段读懂</title>
+  <title>Skills 译站</title>
   <meta name="description" content="把 skills CLI 装出的几十个技能整理成「仓库 → 子技能」的本地知识库：中英对照逐段阅读、lock 归属、多根去重、分类速查。本地扫描、无账号、无遥测。">
   <meta name="color-scheme" content="light">
   <link rel="icon" type="image/png" href="logo.png">
-  <meta property="og:title" content="Skill 译站 · 中英对照的本地 Skill 知识库">
+  <meta property="og:title" content="Skills 译站 · 中英对照的本地 Skill 知识库">
   <meta property="og:description" content="来源归属清清楚楚，左原文右中文逐段对照；只读技能目录，不安装、不卸载。">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://turkeypro1025.github.io/skills-lingo/">
@@ -26,7 +26,7 @@
       <a class="brand" href="#top" aria-label="回到顶部">
         <img class="brand-logo" src="logo.png" alt="" width="28" height="28">
         <span class="brand-text">
-          <span class="brand-name">Skill 译站</span>
+          <span class="brand-name">Skills 译站</span>
           <span class="brand-sub">中英对照学习</span>
         </span>
       </a>
@@ -51,9 +51,9 @@
     <!-- 1. Hero -->
     <section class="hero" id="top">
       <div class="wrap">
-        <p class="hero-badge">MIT 开源 · v0.1.0 · 本地优先</p>
-        <h1 class="hero-title">装进来的几十个 Skill，<span class="grad">逐段读懂</span></h1>
-        <p class="hero-sub">Skill 译站把 skills CLI 装出的技能整理成「仓库 → 子技能」的本地知识库：来源归属清清楚楚，左原文右中文逐段对照，中文概述与分类帮你选对要用的那一个。只读技能目录，不安装、不卸载。</p>
+        <p class="hero-badge">MIT 开源 · v1.0.0</p>
+        <h1 class="hero-title">几十个 Skill，<span class="grad">一览无余，逐段读懂</span></h1>
+        <p class="hero-sub">Skills 译站把 skills CLI 装出的技能整理成「仓库 → 子技能」的本地知识库：来源归属清清楚楚，左原文右中文逐段对照，中文概述与分类帮你选对要用的那一个。只读技能目录，不安装、不卸载。</p>
         <div class="hero-cta">
           <a class="btn btn-primary btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo/releases/latest" target="_blank" rel="noopener">↓ 下载桌面版</a>
           <a class="btn btn-ghost btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener">GitHub 查看源码</a>
@@ -71,7 +71,7 @@
           <div class="mock-chrome">
             <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
             <img class="mock-logo" src="logo.png" alt="" width="16" height="16">
-            <span class="mock-title">Skill 译站 · 中英对照学习</span>
+            <span class="mock-title">Skills 译站</span>
             <span class="mock-demo">演示数据</span>
           </div>
           <div class="demo-main">
@@ -275,20 +275,24 @@
             <p>经 OS 凭据库 + AES-256-GCM 加密后落盘，任何文件没有明文；界面只显示掩码（前3***后4）；凭据复制到其他机器无法解密，可随时清除。</p>
           </details>
           <details>
+            <summary>桌面版和网页版数据互通吗？<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>桌面版和网页版共用同一份数据缓存空间，切换时无需配置、无需重新分析、整理和翻译。</p>
+          </details>
+          <details>
             <summary>会改动我的技能文件吗？<span class="faq-x" aria-hidden="true"></span></summary>
             <p>不会。只读扫描技能目录；手动归组等操作只写在自己的数据目录里。</p>
           </details>
-          <details>
+          <!-- <details>
             <summary>分类标签从哪里来？<span class="faq-x" aria-hidden="true"></span></summary>
             <p>内置种子覆盖 vercel-labs/skills 等常用技能；配置 LLM 后自动为无种子的技能生成中文概述与 1-3 个分类标签；点技能卡上的标签即可筛选。</p>
-          </details>
+          </details> -->
           <details>
             <summary>桌面版支持 macOS / Linux 吗？<span class="faq-x" aria-hidden="true"></span></summary>
             <p>桌面安装包目前仅 Windows；网页版（Node ≥ 20）跨平台，密钥在 macOS / Linux 走 Keychain / secret-tool。</p>
           </details>
           <details>
             <summary>翻译怎么计费？<span class="faq-x" aria-hidden="true"></span></summary>
-            <p>走 UApiPro AI 翻译接口，每次调用 4 积分；超长文档自动分块，按调用次数计；内容未变不重复调用，同一文档并发只翻一份。</p>
+            <p>走 UApiPro AI 翻译接口（非广，纯好用，注册每月领3500积分），每次调用 4 积分；超长文档自动分块，按调用次数计；内容未变不重复调用，同一文档并发只翻一份。</p>
           </details>
         </div>
       </div>
@@ -298,18 +302,18 @@
     <section class="sec sec-alt" id="download">
       <div class="wrap">
         <p class="kicker">DOWNLOAD</p>
-        <h2>下载 Skill 译站</h2>
-        <p class="lead">v0.1.0 · MIT · Windows 桌面版 + 跨平台网页版</p>
+        <h2>下载 Skills 译站</h2>
+        <p class="lead">v1.0.0 · MIT · Windows 桌面版 + 网页版</p>
         <div class="grid grid-2">
           <article class="card dl-card">
             <h3>桌面版（Windows，推荐）</h3>
             <ul class="dl-list">
-              <li>安装版 setup.exe / 便携版 portable.exe</li>
+              <li>安装版 setup.exe，免安装免配置</li>
               <li>默认托盘常驻，关窗最小化</li>
               <li>WebView2 系统一般自带</li>
             </ul>
             <a class="btn btn-primary" href="https://github.com/TurkeyPro1025/skills-lingo/releases/latest" target="_blank" rel="noopener">前往 GitHub Releases</a>
-            <p class="warn">⚠ 安装包未做代码签名，Windows 可能提示「未知发布者」，选择「仍要运行」即可。</p>
+            <p class="warn">⚠ 安装包未做代码签名，Windows 可能提示「未知发布者」，选择「仍要运行」即可，若安装过程中出现受限警告，请用管理员身份运行安装程序（Windows系统问题）</p>
           </article>
           <article class="card dl-card">
             <h3>网页版（源码运行）</h3>
@@ -333,7 +337,7 @@ node server.js</code></pre>
       <div class="footer-brand">
         <a class="brand" href="#top">
           <img class="brand-logo" src="logo.png" alt="" width="28" height="28">
-          <span class="brand-name">Skill 译站</span>
+          <span class="brand-name">Skills 译站</span>
         </a>
         <p>把装进来的 Skill，整理成读得懂的本地知识库。</p>
       </div>
@@ -350,7 +354,7 @@ node server.js</code></pre>
         <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/LICENSE" target="_blank" rel="noopener">LICENSE</a>
       </nav>
     </div>
-    <div class="footer-bar">© 2026 Skill 译站 · MIT License · 只读工具，不安装、不卸载。</div>
+    <div class="footer-bar">© 2026 Skills 译站 · MIT License · 只读工具，不安装、不卸载。</div>
   </footer>
 </body>
 </html>

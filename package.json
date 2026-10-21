@@ -1,6 +1,6 @@
 {
   "name": "skills-lingo",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "轻量只读的本地 Skill 知识库:多根扫描、lock 归属引擎、中英对照阅读",
   "type": "commonjs",
   "main": "server.js",

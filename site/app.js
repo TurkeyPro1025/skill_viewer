@@ -1,4 +1,4 @@
-/* Skill 译站官网交互:复制 / 滚动高亮 / FAQ 单开(零依赖) */
+/* Skills 译站官网交互:复制 / 滚动高亮 / FAQ 单开(零依赖) */
 (function () {
   "use strict";
 
