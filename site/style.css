@@ -206,6 +206,32 @@ section[id] { scroll-margin-top: 84px; }
 
 .nav-actions { display: flex; align-items: center; gap: 10px; }
 .nav-actions .btn { padding: 7px 16px; font-size: 13.5px; }
+
+/* 语言切换:中文 / EN 两页互链 */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.lang-switch a,
+.lang-switch .lang-on {
+  padding: 3px 9px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+.lang-switch a { color: var(--ink-2); }
+.lang-switch a:hover {
+  text-decoration: none;
+  color: var(--accent-ink);
+  background: rgba(255, 255, 255, 0.7);
+}
+.lang-switch .lang-on { background: var(--accent); color: #fff; }
 .nav-gh {
   display: inline-flex;
   padding: 7px;

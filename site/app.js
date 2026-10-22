@@ -2,6 +2,12 @@
 (function () {
   "use strict";
 
+  /* 官网双语页共用同一份脚本:按 <html lang> 选界面文案 */
+  var IS_EN = (document.documentElement.lang || "").toLowerCase().indexOf("en") === 0;
+  var T = IS_EN
+    ? { copied: "Copied ✓", copy: "Copy", expand: "Show all", collapse: "Collapse" }
+    : { copied: "已复制 ✓", copy: "复制", expand: "展开全部", collapse: "收起" };
+
   /* 复制按钮:navigator.clipboard,file:// 下回退 execCommand;成功态 1.6s */
   var btn = document.getElementById("copy-btn");
   var cmd = document.getElementById("install-cmd");
@@ -9,10 +15,10 @@
     btn.addEventListener("click", function () {
       var text = cmd.innerText;
       var done = function () {
-        btn.textContent = "已复制 ✓";
+        btn.textContent = T.copied;
         btn.classList.add("copied");
         setTimeout(function () {
-          btn.textContent = "复制";
+          btn.textContent = T.copy;
           btn.classList.remove("copied");
         }, 1600);
       };
@@ -60,7 +66,7 @@
     rootsToggle.addEventListener("click", function () {
       var collapsed = rootsList.classList.toggle("collapsed");
       rootsToggle.setAttribute("aria-expanded", String(!collapsed));
-      rootsToggle.textContent = collapsed ? "展开全部" : "收起";
+      rootsToggle.textContent = collapsed ? T.expand : T.collapse;
     });
   }
 

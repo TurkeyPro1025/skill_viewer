@@ -1,0 +1,35 @@
+# Skills Lingo (Skills 译站)
+
+> Skills Lingo is a free, open-source (MIT), local-first desktop and web app that turns the skills installed by the agent skills CLI (primarily under `.agents`) into a readable knowledge base: bilingual reading (English ↔ Chinese), source attribution from lock files, multi-root deduplication, and categorized summaries. It is read-only — it never installs, uninstalls or modifies skill files.
+
+> Skills 译站是一个免费、开源(MIT)、本地优先的桌面 + 网页应用,把 skills CLI 装出的技能整理成可读的本地知识库:中英对照逐段阅读、基于 lock 文件的来源归属、多根去重、分类概述。只读,不安装、不卸载、不改写任何技能文件。
+
+## Key links
+
+- Website (English): https://skillslingo.ink/en/
+- 官网(中文): https://skillslingo.ink/
+- Source code: https://github.com/TurkeyPro1025/skills-lingo
+- README (English): https://github.com/TurkeyPro1025/skills-lingo/blob/main/README.md
+- README (中文): https://github.com/TurkeyPro1025/skills-lingo/blob/main/README.zh-CN.md
+- Latest release: https://github.com/TurkeyPro1025/skills-lingo/releases/latest
+- Contributing: https://github.com/TurkeyPro1025/skills-lingo/blob/main/CONTRIBUTING.md
+
+## Facts
+
+- Name: Skills Lingo (中文名:Skills 译站)
+- License: MIT
+- Platforms: Windows desktop (Tauri 2); web version (Node.js >= 20, zero npm dependencies)
+- Primary use case: skill repositories installed under the shared `.agents` directory, with 30+ supported agent tools
+- Supported skill roots: 30+ agent directories, led by ~/.agents/skills, plus ~/.zcode/skills, ~/.codex/skills, ~/.cursor/skills and more
+- Privacy: scans locally; no account, no telemetry; API keys encrypted with the OS credential store + AES-256-GCM; translation and LLM calls happen only after explicit consent
+- Translation: UApiPro AI translation API, 4 credits per call, chunked for long documents, cached and reused
+- UI language: the website is bilingual (Chinese / English); the app UI is currently Chinese, with an English UI planned for v1.2.0
+- Not affiliated with Anthropic, vercel-labs/skills, or any supported agent tool
+
+## What it does
+
+- Block-level bilingual reading: original and translation aligned section by section; code blocks, commands, URLs and paths are extracted before translation and never rewritten.
+- Source attribution: reads .skill-lock.json first, then falls back to the .git remote, frontmatter and LLM inference (marked as unconfirmed).
+- Multi-root deduplication: merges junctions/symlinks by real path and identical copies; shows diverged copies as separate versions.
+- Categorized quick reference: one-line summaries and category tags; built-in seeds plus optional LLM.
+- Desktop + web: same UI and API contract, shared local data cache.

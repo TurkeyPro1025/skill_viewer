@@ -4,3 +4,6 @@ data/
 .DS_Store
 Thumbs.db
 config.json
+
+# 本地工作区:PRD、发版草稿、翻译底稿与截图只记录在本机,不提交、不推送
+.scratch/

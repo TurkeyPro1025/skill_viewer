@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Skills Lingo — Agent Skill Viewer &amp; Translator for .agents and 30+ Agents</title>
+  <meta name="description" content="A local, read-only knowledge base for .agents and 30+ agent skill directories: bilingual reading, lock-file attribution, deduplication and categorized summaries. No account, no telemetry.">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#e9eef6">
+  <link rel="icon" type="image/png" href="../logo.png">
+  <link rel="canonical" href="https://skillslingo.ink/en/">
+  <link rel="alternate" hreflang="zh-CN" href="https://skillslingo.ink/">
+  <link rel="alternate" hreflang="en" href="https://skillslingo.ink/en/">
+  <link rel="alternate" hreflang="x-default" href="https://skillslingo.ink/">
+  <link rel="alternate" type="text/plain" href="https://skillslingo.ink/llms.txt" title="LLM context">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Skills Lingo">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="zh_CN">
+  <meta property="og:title" content="Skills Lingo — Agent Skill Viewer &amp; Translator for .agents and 30+ Agents">
+  <meta property="og:description" content="See every skill installed under .agents and 30+ agent directories in one place: source attribution, bilingual reading, and categories that help you pick the right skill. Read-only, local-first, MIT.">
+  <meta property="og:url" content="https://skillslingo.ink/en/">
+  <meta property="og:image" content="https://skillslingo.ink/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Skills Lingo — agent skill viewer and translator">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Skills Lingo — Agent Skill Viewer &amp; Translator for .agents and 30+ Agents">
+  <meta name="twitter:description" content="A local, read-only knowledge base for .agents and 30+ agent skill directories. Bilingual reading, attribution, deduplication and categories.">
+  <meta name="twitter:image" content="https://skillslingo.ink/og-image.png">
+  <meta name="twitter:image:alt" content="Skills Lingo — agent skill viewer and translator">
+  <link rel="stylesheet" href="../style.css">
+  <script defer src="../app.js"></script>
+  <script defer src="../demo.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Skills Lingo",
+    "alternateName": "Skills 译站",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Windows, Web",
+    "softwareVersion": "1.1.0",
+    "description": "A local, read-only knowledge base for .agents and 30+ agent skill directories: bilingual reading, lock-file attribution, deduplication and categorized summaries.",
+    "url": "https://skillslingo.ink/en/",
+    "downloadUrl": "https://github.com/TurkeyPro1025/skills-lingo/releases/latest",
+    "codeRepository": "https://github.com/TurkeyPro1025/skills-lingo",
+    "license": "https://opensource.org/licenses/MIT",
+    "inLanguage": "en",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "TurkeyPro1025",
+      "url": "https://github.com/TurkeyPro1025"
+    },
+    "sameAs": [
+      "https://github.com/TurkeyPro1025/skills-lingo"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Can I use it without translation or an LLM?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Browsing, attribution, deduplication and search all work. Bilingual reading requires a translation service. Summaries and categories have built-in seeds for common skills; an LLM fills in the rest."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Where is the API key stored? Is it safe?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The key is encrypted to disk with the OS credential store and AES-256-GCM, so no file contains plaintext. The UI only shows a mask (first 3 / last 4 characters). The encrypted credentials cannot be decrypted on another machine and can be cleared at any time."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Do the desktop and web versions share data?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Both use the same data cache, so switching between them requires no configuration, re-analysis, regrouping or re-translation."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Will it modify my skill files?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "No. It scans skill directories read-only. Manual grouping and similar actions write only to its own data directory."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does the desktop app support macOS or Linux?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The desktop installer is Windows-only for now. The web version (Node 20 or newer) is cross-platform, and keys use Keychain or secret-tool on macOS and Linux."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How is translation billed?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Through the UApiPro AI translation API (not an ad — just a good service; new accounts get 3,500 credits per month). Each call costs 4 credits. Long documents are chunked and billed per call; unchanged content is never re-translated, and concurrent requests for the same document are deduplicated."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is the app interface available in English?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The website is bilingual. The app UI is currently Chinese; an English UI is planned for v1.2.0."
+        }
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- 0. Sticky glass navigation -->
+  <header class="nav">
+    <div class="nav-inner">
+      <a class="brand" href="#top" aria-label="Back to top">
+        <img class="brand-logo" src="../logo.png" alt="" width="28" height="28">
+        <span class="brand-text">
+          <span class="brand-name">Skills Lingo</span>
+          <span class="brand-sub">Bilingual skill library</span>
+        </span>
+      </a>
+      <nav class="nav-links" aria-label="Page navigation">
+        <a href="#why">Why</a>
+        <a href="#features">Features</a>
+        <a href="#compat">Compatibility</a>
+        <a href="#security">Security</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-actions">
+        <div class="lang-switch" role="group" aria-label="Language">
+          <a href="../" hreflang="zh-CN" lang="zh-CN">中文</a>
+          <span class="lang-on" aria-current="true">EN</span>
+        </div>
+        <a class="nav-gh" href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener" aria-label="GitHub repository">
+          <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+        <a class="btn btn-primary" href="#download">Download</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- 1. Hero -->
+    <section class="hero" id="top">
+      <div class="wrap">
+        <p class="hero-badge">MIT open source · v1.1.0</p>
+        <h1 class="hero-title">Dozens of skills, <span class="grad">finally readable.</span></h1>
+        <p class="hero-sub">Skills Lingo turns the skills installed by the skills CLI into a local knowledge base organized by repository and sub-skill — built around the shared <code>.agents</code> directory and 30+ agent tools. See clear source attribution, read the original and the translation side by side, and choose the right skill with summaries and categories. Read-only: nothing is installed or uninstalled.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo/releases/latest" target="_blank" rel="noopener">↓ Download for Windows</a>
+          <a class="btn btn-ghost btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener">View source on GitHub</a>
+        </div>
+        <ul class="hero-trust">
+          <li>✓ MIT licensed</li>
+          <li>✓ OS-level key encryption</li>
+          <li>✓ Local scanning, no account, no telemetry</li>
+        </ul>
+      </div>
+
+      <!-- Interactive demo: search / category / grouping / bilingual reader, cropped from the app -->
+      <div class="wrap mock-wrap">
+        <div class="mock" role="region" aria-label="Interactive interface demo: search skills, filter by category, collapse repository groups; click a card to open the bilingual reader">
+          <div class="mock-chrome">
+            <span class="dot dot-r"></span><span class="dot dot-y"></span><span class="dot dot-g"></span>
+            <img class="mock-logo" src="../logo.png" alt="" width="16" height="16">
+            <span class="mock-title">Skills Lingo</span>
+            <span class="mock-demo">Demo data</span>
+          </div>
+          <div class="demo-main">
+            <div class="demo-toolbar">
+              <input class="demo-search" id="demo-q" type="search" placeholder="Search skills, summaries, categories, repositories…" aria-label="Search skills (demo)">
+              <span class="demo-stats" id="demo-stats"></span>
+            </div>
+            <div class="demo-chips" id="demo-chips"></div>
+            <div class="demo-groups" id="demo-groups"></div>
+            <p class="demo-empty" id="demo-empty" hidden>No matching skills — try a shorter keyword, or click the highlighted category again to clear the filter.</p>
+            <div class="demo-reader" id="demo-reader" hidden>
+              <div class="demo-reader-top">
+                <button class="demo-back" id="demo-back" type="button">← Back</button>
+                <div class="demo-reader-title">
+                  <strong id="demo-skill"></strong>
+                  <span class="demo-path" id="demo-path"></span>
+                </div>
+                <span class="demo-meta" id="demo-meta"></span>
+              </div>
+              <div class="demo-view" id="demo-view"></div>
+            </div>
+          </div>
+          <div class="mock-status">Demo data (3 repositories, 14 skills, drawn from real seeds and translation cache) · search / category filter / group collapse · click a card to open the bilingual reader, Esc to go back</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. The problem -->
+    <section class="sec" id="why">
+      <div class="wrap">
+        <p class="kicker">WHY</p>
+        <h2>The more you install, the harder it gets to read</h2>
+        <p class="lead">The skills CLI flattens dozens of sub-skills from a repository into a local directory, and the same skills are shared across multiple tool roots. Over time:</p>
+        <div class="grid grid-3">
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">📖</div>
+            <h3>Hard to read</h3>
+            <p>SKILL.md files are almost entirely in English. Reading dozens of them one by one is exhausting.</p>
+            <p class="fix"><b>→ Skills Lingo</b> original on the left, translation on the right, section by section — learn while you read.</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">❓</div>
+            <h3>Unclear provenance</h3>
+            <p>Skill folders are mixed together. It's hard to tell which repository a skill came from, or who installed it.</p>
+            <p class="fix"><b>→ Skills Lingo</b> a lock-file attribution engine assigns ownership precisely, and marks every inference.</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🧩</div>
+            <h3>Duplicates everywhere</h3>
+            <p>The same skill shows up under <code>.agents</code>, <code>.zcode</code> and <code>.claude</code>, as if it were installed several times.</p>
+            <p class="fix"><b>→ Skills Lingo</b> real-path merging, copy counts, and separate versions for diverged copies.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Core features -->
+    <section class="sec sec-alt" id="features">
+      <div class="wrap">
+        <p class="kicker">FEATURES</p>
+        <h2>A read-only local knowledge base</h2>
+        <p class="lead">Understand it, find it, know where it came from.</p>
+        <div class="grid grid-3">
+          <article class="card">
+            <span class="fico fico-blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+            </span>
+            <h3>Block-level bilingual reading</h3>
+            <p>Original and translation aligned section by section. Code blocks, commands, URLs and paths are extracted before translation and restored afterwards — never rewritten. Chinese source documents are shown in a single column.</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-violet" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            </span>
+            <h3>Categorized quick reference</h3>
+            <p>Not sure which skill to call? A one-line summary explains what it is and when to use it. Click a category pill or a card tag — engineering workflow, writing, debugging and more — to filter instantly, alongside search and repository grouping. Built-in seeds cover common skills; an LLM fills in the rest.</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-green" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/></svg>
+            </span>
+            <h3>Lock-file attribution engine</h3>
+            <p>Reads the skills CLI install manifest <code>.skill-lock.json</code> first. Without a record, it falls back to the <code>.git</code> remote, frontmatter and LLM inference, marking inferred sources as "unconfirmed". Manual grouping always wins.</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-amber" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            </span>
+            <h3>Multi-root deduplication</h3>
+            <p>Junctions and symlinks are merged by real path; identical independent copies are merged and counted; diverged copies with the same name are shown as separate versions.</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-cyan" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </span>
+            <h3>Translation-friendly by design</h3>
+            <p>Translations are generated on first open, reused while the content is unchanged, and only one translation runs per document at a time. Long documents are chunked with global throttling; attached documents are translated on demand.</p>
+          </article>
+          <article class="card">
+            <span class="fico fico-rose" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </span>
+            <h3>Desktop and web</h3>
+            <p>A Windows desktop app that runs without Node and lives in the tray, plus a web version started with <code>node server.js</code> — same UI and API contract.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Compatibility -->
+    <section class="sec" id="compat">
+      <div class="wrap">
+        <p class="kicker">COMPAT</p>
+        <h2>Works with 30+ agents</h2>
+        <p class="lead">Built around the shared <code>.agents</code> skill directory and 30+ agent tools. Skills live in each tool's own directory; Skills Lingo only reads them. When the same skill appears in several places, ownership is merged automatically.</p>
+        <ul class="roots" id="roots-list">
+          <li><span class="root-ico"><img src="../icons/agentskills.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/agentskills.png"></span><span class="root-meta"><span class="root-name">.agents</span><span class="root-path">~/.agents/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/claude.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/claude.png"></span><span class="root-meta"><span class="root-name">Claude</span><span class="root-path">~/.claude/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/codex.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/codex.png"></span><span class="root-meta"><span class="root-name">Codex</span><span class="root-path">~/.codex/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/cursor.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/cursor.png"></span><span class="root-meta"><span class="root-name">Cursor</span><span class="root-path">~/.cursor/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/githubcopilot.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/githubcopilot.png"></span><span class="root-meta"><span class="root-name">Copilot</span><span class="root-path">~/.copilot/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/gemini.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/gemini.png"></span><span class="root-meta"><span class="root-name">Gemini</span><span class="root-path">~/.gemini/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/dsh.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/dsh.png"></span><span class="root-meta"><span class="root-name">DeepSeek Harness</span><span class="root-path">~/.dsh/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/qwen.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/qwen.png"></span><span class="root-meta"><span class="root-name">Qwen</span><span class="root-path">~/.qwen/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/trae.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/trae.png"></span><span class="root-meta"><span class="root-name">Trae</span><span class="root-path">~/.trae/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/trae.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/trae.png"></span><span class="root-meta"><span class="root-name">Trae CN</span><span class="root-path">~/.trae-cn/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/opencode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/opencode.png"></span><span class="root-meta"><span class="root-name">OpenCode</span><span class="root-path">~/.config/opencode/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/zcode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/zcode.png"></span><span class="root-meta"><span class="root-name">ZCode</span><span class="root-path">~/.zcode/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/workbuddy.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/workbuddy.png"></span><span class="root-meta"><span class="root-name">WorkBuddy</span><span class="root-path">~/.workbuddy/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/windsurf.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/windsurf.png"></span><span class="root-meta"><span class="root-name">Windsurf</span><span class="root-path">~/.codeium/windsurf/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/augment.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/augment.png"></span><span class="root-meta"><span class="root-name">Augment</span><span class="root-path">~/.augment/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/codebuddy.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/codebuddy.png"></span><span class="root-meta"><span class="root-name">CodeBuddy</span><span class="root-path">~/.codebuddy/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/continue.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/continue.png"></span><span class="root-meta"><span class="root-name">Continue</span><span class="root-path">~/.continue/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/cortex.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/cortex.png"></span><span class="root-meta"><span class="root-name">Cortex Code</span><span class="root-path">~/.snowflake/cortex/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/droid.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/droid.png"></span><span class="root-meta"><span class="root-name">Droid</span><span class="root-path">~/.factory/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/goose.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/goose.png"></span><span class="root-meta"><span class="root-name">Goose</span><span class="root-path">~/.config/goose/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/hermes.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/hermes.png"></span><span class="root-meta"><span class="root-name">Hermes</span><span class="root-path">~/.hermes/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/iflow.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/iflow.png"></span><span class="root-meta"><span class="root-name">iFlow</span><span class="root-path">~/.iflow/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/junie.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/junie.png"></span><span class="root-meta"><span class="root-name">Junie</span><span class="root-path">~/.junie/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/kilocode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/kilocode.png"></span><span class="root-meta"><span class="root-name">Kilo Code</span><span class="root-path">~/.kilocode/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/kiro.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/kiro.png"></span><span class="root-meta"><span class="root-name">Kiro</span><span class="root-path">~/.kiro/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/kode.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/kode.png"></span><span class="root-meta"><span class="root-name">Kode</span><span class="root-path">~/.kode/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/mcpjam.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/mcpjam.png"></span><span class="root-meta"><span class="root-name">MCPJam</span><span class="root-path">~/.mcpjam/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/openclaw.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/openclaw.png"></span><span class="root-meta"><span class="root-name">OpenClaw</span><span class="root-path">~/.openclaw/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/openhands.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/openhands.png"></span><span class="root-meta"><span class="root-name">OpenHands</span><span class="root-path">~/.openhands/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/pi.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/pi.png"></span><span class="root-meta"><span class="root-name">Pi</span><span class="root-path">~/.pi/agent/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/pochi.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/pochi.png"></span><span class="root-meta"><span class="root-name">Pochi</span><span class="root-path">~/.pochi/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/qoder.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/qoder.png"></span><span class="root-meta"><span class="root-name">Qoder</span><span class="root-path">~/.qoder/skills</span></span></li>
+          <li><span class="root-ico"><img src="../icons/zencoder.svg" alt="" loading="lazy" width="20" height="20" data-fallback="../icons/zencoder.png"></span><span class="root-meta"><span class="root-name">Zencoder</span><span class="root-path">~/.zencoder/skills</span></span></li>
+        </ul>
+        <button class="roots-toggle" id="roots-toggle" type="button" aria-expanded="false" aria-controls="roots-list">Show all</button>
+        <div class="note">
+          <span aria-hidden="true">🔒</span>
+          <p>Reads the <a href="https://github.com/vercel-labs/skills" target="_blank" rel="noopener">vercel-labs/skills</a> install manifest <code>.skill-lock.json</code> first for the most accurate attribution. Without a record, it infers the source level by level and labels it. These are some of the default scan roots; customize them under <code>roots</code> in <code>config.json</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Security and privacy -->
+    <section class="sec sec-alt" id="security">
+      <div class="wrap">
+        <p class="kicker">SECURITY</p>
+        <h2>Security and privacy first</h2>
+        <div class="grid grid-4">
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🔐</div>
+            <h3>Encrypted keys</h3>
+            <p>Entered only on the settings page, encrypted to disk with the OS credential store (DPAPI / Keychain / secret-tool) plus AES-256-GCM. The UI and API only return masked values; you can clear the key at any time.</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🏠</div>
+            <h3>Local only</h3>
+            <p>Listens on <code>127.0.0.1</code> by default. Every write request enforces same-origin checks; cross-site forgery is rejected with 403.</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">✉️</div>
+            <h3>Consent before any outbound call</h3>
+            <p>Translation requires explicit consent before it is enabled. The LLM is optional and only sends data when enabled. Without configuration, nothing leaves your machine except translation requests.</p>
+          </article>
+          <article class="card">
+            <div class="card-emoji" aria-hidden="true">🛡️</div>
+            <h3>Read-only</h3>
+            <p>Nothing is installed, uninstalled or modified. Scanning, deduplication and search all run locally.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. FAQ -->
+    <section class="sec" id="faq">
+      <div class="wrap wrap-narrow">
+        <p class="kicker">FAQ</p>
+        <h2>Frequently asked questions</h2>
+        <div class="faq">
+          <details open>
+            <summary>Can I use it without translation or an LLM?<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>Yes. Browsing, attribution, deduplication and search all work. Bilingual reading requires a translation service. Summaries and categories have built-in seeds for common skills; an LLM fills in the rest.</p>
+          </details>
+          <details>
+            <summary>Where is the API key stored? Is it safe?<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>The key is encrypted to disk with the OS credential store and AES-256-GCM, so no file contains plaintext. The UI only shows a mask (first 3 / last 4 characters). The encrypted credentials cannot be decrypted on another machine and can be cleared at any time.</p>
+          </details>
+          <details>
+            <summary>Do the desktop and web versions share data?<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>Yes. Both use the same data cache, so switching between them requires no configuration, re-analysis, regrouping or re-translation.</p>
+          </details>
+          <details>
+            <summary>Will it modify my skill files?<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>No. It scans skill directories read-only. Manual grouping and similar actions write only to its own data directory.</p>
+          </details>
+          <details>
+            <summary>Does the desktop app support macOS or Linux?<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>The desktop installer is Windows-only for now. The web version (Node ≥ 20) is cross-platform, and keys use Keychain or secret-tool on macOS and Linux.</p>
+          </details>
+          <details>
+            <summary>How is translation billed?<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>Through the UApiPro AI translation API (not an ad — just a good service; new accounts get 3,500 credits per month). Each call costs 4 credits. Long documents are chunked and billed per call; unchanged content is never re-translated, and concurrent requests for the same document are deduplicated.</p>
+          </details>
+          <details>
+            <summary>Is the app interface available in English?<span class="faq-x" aria-hidden="true"></span></summary>
+            <p>The website is bilingual. The app UI is currently Chinese; an English UI is planned for v1.2.0.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Download -->
+    <section class="sec sec-alt" id="download">
+      <div class="wrap">
+        <p class="kicker">DOWNLOAD</p>
+        <h2>Download Skills Lingo</h2>
+        <p class="lead">v1.1.0 · MIT · Windows desktop + web</p>
+        <div class="grid grid-2">
+          <article class="card dl-card">
+            <h3>Desktop (Windows, recommended)</h3>
+            <ul class="dl-list">
+              <li>Installer <code>setup.exe</code> — no Node, no configuration</li>
+              <li>Runs in the system tray; closing the window minimizes it</li>
+              <li>WebView2 is usually already installed on Windows</li>
+            </ul>
+            <a class="btn btn-primary" href="https://github.com/TurkeyPro1025/skills-lingo/releases/latest" target="_blank" rel="noopener">Go to GitHub Releases</a>
+            <p class="warn">⚠ The installer is not code-signed, so Windows may show an “Unknown publisher” warning — choose “Run anyway”. If installation is blocked by a restricted warning, run the installer as administrator (a Windows behavior).</p>
+          </article>
+          <article class="card dl-card">
+            <h3>Web (run from source)</h3>
+            <p>Node.js ≥ 20, zero npm dependencies.</p>
+            <div class="code-block">
+              <button class="copy-btn" id="copy-btn" type="button">Copy</button>
+              <pre id="install-cmd"><code>git clone https://github.com/TurkeyPro1025/skills-lingo.git
+cd skills-lingo
+node server.js</code></pre>
+            </div>
+            <p class="dl-hint">Open <code>http://127.0.0.1:4763</code> and you're ready.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 8. Footer -->
+  <footer class="footer">
+    <div class="wrap footer-grid">
+      <div class="footer-brand">
+        <a class="brand" href="#top">
+          <img class="brand-logo" src="../logo.png" alt="" width="28" height="28">
+          <span class="brand-name">Skills Lingo</span>
+        </a>
+        <p>Turn installed skills into a local knowledge base you can actually read.</p>
+      </div>
+      <nav aria-label="Source">
+        <h4>Source</h4>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/issues" target="_blank" rel="noopener">Issues</a>
+      </nav>
+      <nav aria-label="Docs">
+        <h4>Docs</h4>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/README.md" target="_blank" rel="noopener">README</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">CONTRIBUTING</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/LICENSE" target="_blank" rel="noopener">LICENSE</a>
+      </nav>
+    </div>
+    <div class="footer-bar">© 2026 Skills Lingo · MIT License · Read-only; nothing is installed or uninstalled.</div>
+  </footer>
+</body>
+</html>

@@ -18,5 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      # 语法护栏:覆盖测试不会加载的 site/app.js、site/demo.js 等脚本
+      - run: npm run check
       # fixture 技能树 + stub provider:无任何 API key 环境下全绿
       - run: npm test

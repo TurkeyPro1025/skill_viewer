@@ -4,6 +4,52 @@
 (function () {
   "use strict";
 
+  /* 官网双语页共用同一份脚本:按 <html lang> 选界面文案;演示数据保持中英对照原貌 */
+  var IS_EN = (document.documentElement.lang || "").toLowerCase().indexOf("en") === 0;
+  var T = IS_EN
+    ? {
+        skills: "skills",
+        openOnGitHub: "Open on GitHub",
+        openSkill: function (name) { return "Open " + name + " — original and translation"; },
+        linkedRoot: "Linked to this tool root",
+        entityRoot: "Root directory containing the entity",
+        copiesMergedTitle: "Identical independent copies merged",
+        copiesMerged: function (n) { return n + " identical copies merged"; },
+        chinese: "Chinese",
+        demoTranslation: "Demo translation",
+        original: "Original",
+        translation: "Translation",
+        untranslated: "(not translated)",
+        copy: "Copy",
+        copied: "Copied",
+        copyFailed: "Copy failed",
+        stats: function (visible, total) { return "Matching " + visible + " / " + total; },
+        statsAll: function (total, repos, attributed) {
+          return total + " skills · " + repos + " repositories · " + attributed + " attributed";
+        },
+      }
+    : {
+        skills: "技能",
+        openOnGitHub: "在 GitHub 打开",
+        openSkill: function (name) { return "打开 " + name + " 的原文译文对照"; },
+        linkedRoot: "链接到该工具根目录",
+        entityRoot: "实体所在根目录",
+        copiesMergedTitle: "内容一致的独立拷贝已合并",
+        copiesMerged: function (n) { return n + " 份拷贝已合并"; },
+        chinese: "中文",
+        demoTranslation: "演示译文",
+        original: "原文",
+        translation: "译文",
+        untranslated: "（未翻译）",
+        copy: "复制",
+        copied: "已复制",
+        copyFailed: "复制失败",
+        stats: function (visible, total) { return "匹配 " + visible + " / " + total; },
+        statsAll: function (total, repos, attributed) {
+          return total + " 技能 · " + repos + " 仓库 · " + attributed + " 已归属";
+        },
+      };
+
   /* ---------- 演示数据(3 组 14 技能;内容取自 seeds/summaries.json、
      data/index.json 与 data/translations/ 真实译文缓存的裁剪节选) ---------- */
   var DEMO = {
@@ -276,13 +322,13 @@
         renderGroups();
       };
       const ghLink = group.sourceUrl
-        ? `<a class="demo-gh" href="${esc(group.sourceUrl)}" target="_blank" rel="noreferrer" title="在 GitHub 打开 ${esc(group.name)}" onclick="event.stopPropagation()">GitHub ↗</a>`
+        ? `<a class="demo-gh" href="${esc(group.sourceUrl)}" target="_blank" rel="noreferrer" title="${T.openOnGitHub} ${esc(group.name)}" onclick="event.stopPropagation()">GitHub ↗</a>`
         : "";
       head.innerHTML = `
         <span class="demo-caret" aria-hidden="true">▼</span>
         <span class="demo-group-title">${esc(group.name)}</span>
         ${ghLink}
-        <span class="demo-group-count">${skills.length} 技能</span>
+        <span class="demo-group-count">${skills.length} ${T.skills}</span>
         <p class="demo-group-desc">${esc(group.repoSummary)}</p>`;
       sec.appendChild(head);
 
@@ -296,8 +342,8 @@
     $("demo-empty").hidden = visibleTotal > 0;
     const filtering = Boolean(S.q || S.cat);
     $("demo-stats").textContent = filtering
-      ? `匹配 ${visibleTotal} / ${S.data.stats.entities}`
-      : `${S.data.stats.entities} 技能 · ${S.data.stats.repos} 仓库 · ${S.data.stats.attributed} 已归属`;
+      ? T.stats(visibleTotal, S.data.stats.entities)
+      : T.statsAll(S.data.stats.entities, S.data.stats.repos, S.data.stats.attributed);
   }
 
   function cardsGrid(cards) {
@@ -313,14 +359,14 @@
     el.className = "demo-card";
     el.tabIndex = 0;
     el.setAttribute("role", "button");
-    el.setAttribute("aria-label", `打开 ${card.name} 的原文译文对照`);
+    el.setAttribute("aria-label", T.openSkill(card.name));
 
     const badges = [];
     for (const r of card.roots || []) {
-      badges.push(`<span class="demo-badge demo-root${r[1] ? " linked" : ""}${rootBadgeClass(r[0])}" title="${r[1] ? "链接到该工具根目录" : "实体所在根目录"}">${esc(r[0])}</span>`);
+      badges.push(`<span class="demo-badge demo-root${r[1] ? " linked" : ""}${rootBadgeClass(r[0])}" title="${r[1] ? T.linkedRoot : T.entityRoot}">${esc(r[0])}</span>`);
     }
-    if (card.copyCount > 1) badges.push(`<span class="demo-badge demo-copy" title="内容一致的独立拷贝已合并">${card.copyCount} 份拷贝已合并</span>`);
-    if (card.entryLanguage === "zh") badges.push('<span class="demo-badge demo-zh">中文</span>');
+    if (card.copyCount > 1) badges.push(`<span class="demo-badge demo-copy" title="${T.copiesMergedTitle}">${T.copiesMerged(card.copyCount)}</span>`);
+    if (card.entryLanguage === "zh") badges.push(`<span class="demo-badge demo-zh">${T.chinese}</span>`);
 
     const cats = (card.categories || [])
       .map((c) => `<span class="demo-cat-tag" data-cat="${esc(c)}">${esc(c)}</span>`).join("");
@@ -359,7 +405,7 @@
     S.opener = openerEl || null;
     $("demo-skill").textContent = skill.name;
     $("demo-path").textContent = doc.path;
-    $("demo-meta").innerHTML = '<span class="demo-badge demo-violet">演示译文</span>';
+    $("demo-meta").innerHTML = `<span class="demo-badge demo-violet">${T.demoTranslation}</span>`;
     renderBilingual(doc);
     $("demo-reader").hidden = false;
     $("demo-view").scrollTop = 0;
@@ -377,7 +423,7 @@
   function renderBilingual(doc) {
     const view = $("demo-view");
     // 列头固定在滚动区外,.demo-bilingual 才是滚动元素
-    view.innerHTML = '<div class="demo-bilingual-head"><span>原文</span><span>译文</span></div><div class="demo-bilingual"></div>';
+    view.innerHTML = `<div class="demo-bilingual-head"><span>${T.original}</span><span>${T.translation}</span></div><div class="demo-bilingual"></div>`;
     const wrap = view.querySelector(".demo-bilingual");
 
     for (const b of doc.blocks) {
@@ -390,7 +436,7 @@
         row.className = "demo-brow";
         const dst = b[3]
           ? `<div class="demo-b-dst demo-md">${renderBlockMarkdown([b[0], b[1], b[3]])}</div>`
-          : '<div class="demo-b-dst demo-empty-note">（未翻译）</div>';
+          : `<div class="demo-b-dst demo-empty-note">${T.untranslated}</div>`;
         row.innerHTML = `<div class="demo-b-src demo-md">${renderBlockMarkdown(b)}</div>${dst}`;
       }
       wrap.appendChild(row);
@@ -405,7 +451,7 @@
       const btn = document.createElement("button");
       btn.className = "demo-code-copy";
       btn.type = "button";
-      btn.textContent = "复制";
+      btn.textContent = T.copy;
       btn.onclick = async () => {
         const text = pre.querySelector("code")?.textContent ?? pre.textContent;
         let ok = false;
@@ -415,9 +461,9 @@
         } catch {
           ok = copyFallback(text);
         }
-        btn.textContent = ok ? "已复制" : "复制失败";
+        btn.textContent = ok ? T.copied : T.copyFailed;
         btn.disabled = true;
-        setTimeout(() => { btn.textContent = "复制"; btn.disabled = false; }, 1500);
+        setTimeout(() => { btn.textContent = T.copy; btn.disabled = false; }, 1500);
       };
       pre.appendChild(btn);
     });

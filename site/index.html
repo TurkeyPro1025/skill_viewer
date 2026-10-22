@@ -3,19 +3,121 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Skills 译站</title>
-  <meta name="description" content="把 skills CLI 装出的几十个技能整理成「仓库 → 子技能」的本地知识库：中英对照逐段阅读、lock 归属、多根去重、分类速查。本地扫描、无账号、无遥测。">
+  <title>Skills 译站 (Skills Lingo) — .agents 技能库查看器 · 30+ Agent 中英对照知识库</title>
+  <meta name="description" content="把 skills CLI 装进 .agents 等 30+ Agent 技能目录的几十个技能整理成「仓库 → 子技能」的本地知识库：中英对照逐段阅读、lock 归属、多根去重、分类速查。本地扫描、无账号、无遥测。">
   <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#e9eef6">
   <link rel="icon" type="image/png" href="logo.png">
-  <meta property="og:title" content="Skills 译站 · 中英对照的本地 Skill 知识库">
-  <meta property="og:description" content="来源归属清清楚楚，左原文右中文逐段对照；只读技能目录，不安装、不卸载。">
+  <link rel="canonical" href="https://skillslingo.ink/">
+  <link rel="alternate" hreflang="zh-CN" href="https://skillslingo.ink/">
+  <link rel="alternate" hreflang="en" href="https://skillslingo.ink/en/">
+  <link rel="alternate" hreflang="x-default" href="https://skillslingo.ink/">
+  <link rel="alternate" type="text/plain" href="https://skillslingo.ink/llms.txt" title="LLM context">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://turkeypro1025.github.io/skills-lingo/">
-  <meta property="og:image" content="https://turkeypro1025.github.io/skills-lingo/logo.png">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:site_name" content="Skills 译站">
+  <meta property="og:locale" content="zh_CN">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:title" content="Skills 译站 · 30+ Agent 技能库的中英对照知识库">
+  <meta property="og:description" content="把 .agents 等 30+ Agent 技能目录里的技能集中看清：来源归属清清楚楚，左原文右中文逐段对照；只读技能目录，不安装、不卸载。">
+  <meta property="og:url" content="https://skillslingo.ink/">
+  <meta property="og:image" content="https://skillslingo.ink/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Skills 译站 — 中英对照的本地 Skill 知识库">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Skills 译站 · 30+ Agent 技能库的中英对照知识库">
+  <meta name="twitter:description" content="把 .agents 等 30+ Agent 技能目录里的技能集中看清：来源归属清清楚楚，左原文右中文逐段对照；只读技能目录，不安装、不卸载。">
+  <meta name="twitter:image" content="https://skillslingo.ink/og-image.png">
+  <meta name="twitter:image:alt" content="Skills 译站 — 中英对照的本地 Skill 知识库">
   <link rel="stylesheet" href="style.css">
   <script defer src="app.js"></script>
   <script defer src="demo.js"></script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Skills 译站",
+    "alternateName": "Skills Lingo",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Windows, Web",
+    "softwareVersion": "1.1.0",
+    "description": "把 skills CLI 装进 .agents 等 30+ Agent 技能目录的技能整理成「仓库 → 子技能」的本地知识库：中英对照逐段阅读、lock 归属、多根去重、分类速查。",
+    "url": "https://skillslingo.ink/",
+    "downloadUrl": "https://github.com/TurkeyPro1025/skills-lingo/releases/latest",
+    "codeRepository": "https://github.com/TurkeyPro1025/skills-lingo",
+    "license": "https://opensource.org/licenses/MIT",
+    "inLanguage": "zh-CN",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "CNY"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "TurkeyPro1025",
+      "url": "https://github.com/TurkeyPro1025"
+    },
+    "sameAs": [
+      "https://github.com/TurkeyPro1025/skills-lingo"
+    ]
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "不配置翻译和 LLM，能用吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "能。浏览、归属、去重、搜索全部可用；中英对照需配置翻译服务；概述与分类对常用技能有内置种子，配置 LLM 后自动补全其余。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "API key 存在哪里？安全吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "经 OS 凭据库 + AES-256-GCM 加密后落盘，任何文件没有明文；界面只显示掩码（前3***后4）；凭据复制到其他机器无法解密，可随时清除。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "桌面版和网页版数据互通吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "桌面版和网页版共用同一份数据缓存空间，切换时无需配置、无需重新分析、整理和翻译。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "会改动我的技能文件吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "不会。只读扫描技能目录；手动归组等操作只写在自己的数据目录里。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "桌面版支持 macOS / Linux 吗？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "桌面安装包目前仅 Windows；网页版（Node ≥ 20）跨平台，密钥在 macOS / Linux 走 Keychain / secret-tool。"
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "翻译怎么计费？",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "走 UApiPro AI 翻译接口（非广告，纯好用，注册每月领 3500 积分），每次调用 4 积分；超长文档自动分块，按调用次数计；内容未变不重复调用，同一文档并发只翻一份。"
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主内容</a>
@@ -38,6 +140,10 @@
         <a href="#faq">常见问题</a>
       </nav>
       <div class="nav-actions">
+        <div class="lang-switch" role="group" aria-label="语言 / Language">
+          <span class="lang-on" aria-current="true">中文</span>
+          <a href="en/" hreflang="en" lang="en">EN</a>
+        </div>
         <a class="nav-gh" href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener" aria-label="GitHub 仓库">
           <svg viewBox="0 0 16 16" width="20" height="20" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
         </a>
@@ -51,9 +157,9 @@
     <!-- 1. Hero -->
     <section class="hero" id="top">
       <div class="wrap">
-        <p class="hero-badge">MIT 开源 · v1.0.0</p>
+        <p class="hero-badge">MIT 开源 · v1.1.0</p>
         <h1 class="hero-title">几十个 Skill，<span class="grad">一览无余，逐段读懂</span></h1>
-        <p class="hero-sub">Skills 译站把 skills CLI 装出的技能整理成「仓库 → 子技能」的本地知识库：来源归属清清楚楚，左原文右中文逐段对照，中文概述与分类帮你选对要用的那一个。只读技能目录，不安装、不卸载。</p>
+        <p class="hero-sub">Skills 译站把 skills CLI 装进 <code>.agents</code> 等技能目录的几十个技能整理成「仓库 → 子技能」的本地知识库——以共享的 <code>.agents</code> 目录为主，同时支持 30+ Agent 工具。来源归属清清楚楚，左原文右中文逐段对照，中文概述与分类帮你选对要用的那一个。只读技能目录，不安装、不卸载。</p>
         <div class="hero-cta">
           <a class="btn btn-primary btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo/releases/latest" target="_blank" rel="noopener">↓ 下载桌面版</a>
           <a class="btn btn-ghost btn-lg" href="https://github.com/TurkeyPro1025/skills-lingo" target="_blank" rel="noopener">GitHub 查看源码</a>
@@ -121,7 +227,7 @@
           <article class="card">
             <div class="card-emoji" aria-hidden="true">🧩</div>
             <h3>重复混乱</h3>
-            <p>同一技能在 <code>.claude</code>、<code>.zcode</code>、<code>.agents</code> 多处出现，像装了好几份。</p>
+            <p>同一技能在 <code>.agents</code>、<code>.zcode</code>、<code>.claude</code> 多处出现，像装了好几份。</p>
             <p class="fix"><b>→ 译站</b>真实路径合并、拷贝计数、分岔多版本。</p>
           </article>
         </div>
@@ -185,8 +291,8 @@
     <section class="sec" id="compat">
       <div class="wrap">
         <p class="kicker">COMPAT</p>
-        <h2>支持 33 个Agent</h2>
-        <p class="lead">技能装进每个工具自己的目录，译站只读不改；同一技能多处出现时自动合并归属。</p>
+        <h2>支持 30+ Agent</h2>
+        <p class="lead">以共享的 <code>.agents</code> 技能目录为主，同时支持 30+ Agent 工具；技能装进每个工具自己的目录，译站只读不改。同一技能多处出现时自动合并归属。</p>
         <ul class="roots" id="roots-list">
           <li><span class="root-ico"><img src="icons/agentskills.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/agentskills.png"></span><span class="root-meta"><span class="root-name">.agents</span><span class="root-path">~/.agents/skills</span></span></li>
           <li><span class="root-ico"><img src="icons/claude.svg" alt="" loading="lazy" width="20" height="20" data-fallback="icons/claude.png"></span><span class="root-meta"><span class="root-name">Claude</span><span class="root-path">~/.claude/skills</span></span></li>
@@ -225,7 +331,7 @@
         <button class="roots-toggle" id="roots-toggle" type="button" aria-expanded="false" aria-controls="roots-list">展开全部</button>
         <div class="note">
           <span aria-hidden="true">🔒</span>
-          <p>优先读取 <a href="https://github.com/vercel-labs/skills" target="_blank" rel="noopener">vercel-labs/skills</a> 安装清单 <code>.skill-lock.json</code>，归属最准；没有记录时逐级推断并标注来源。以上为默认扫描根，可在 <code>config.json</code> 的 <code>roots</code> 自定义。</p>
+          <p>优先读取 <a href="https://github.com/vercel-labs/skills" target="_blank" rel="noopener">vercel-labs/skills</a> 安装清单 <code>.skill-lock.json</code>，归属最准；没有记录时逐级推断并标注来源。以上为部分默认扫描根，可在 <code>config.json</code> 的 <code>roots</code> 自定义。</p>
         </div>
       </div>
     </section>
@@ -303,7 +409,7 @@
       <div class="wrap">
         <p class="kicker">DOWNLOAD</p>
         <h2>下载 Skills 译站</h2>
-        <p class="lead">v1.0.0 · MIT · Windows 桌面版 + 网页版</p>
+        <p class="lead">v1.1.0 · MIT · Windows 桌面版 + 网页版</p>
         <div class="grid grid-2">
           <article class="card dl-card">
             <h3>桌面版（Windows，推荐）</h3>
@@ -349,7 +455,7 @@ node server.js</code></pre>
       </nav>
       <nav aria-label="文档">
         <h4>文档</h4>
-        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/README.md" target="_blank" rel="noopener">README</a>
+        <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/README.zh-CN.md" target="_blank" rel="noopener">README</a>
         <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">CONTRIBUTING</a>
         <a href="https://github.com/TurkeyPro1025/skills-lingo/blob/main/LICENSE" target="_blank" rel="noopener">LICENSE</a>
       </nav>

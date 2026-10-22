@@ -1,0 +1,43 @@
+<!-- OG / social preview source (1200x630). Canonical source; regenerate with:
+  chrome --headless=new --disable-gpu --hide-scrollbars --window-size=1200,630 \
+    --screenshot=site/og-image.png docs/og-image.html
+  (run from the repository root; Chrome resolves ../site/logo.png from this file) -->
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1200px;height:630px;overflow:hidden}
+  body{font-family:'Segoe UI','Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif;background:#e9eef6;color:#17233a}
+  .canvas{position:relative;width:1200px;height:630px;padding:64px 72px;display:flex;flex-direction:column;
+    background:
+      radial-gradient(760px 440px at 8% -10%,rgba(59,130,246,.28),transparent 62%),
+      radial-gradient(640px 420px at 98% 8%,rgba(124,58,237,.20),transparent 60%),
+      radial-gradient(700px 460px at 60% 118%,rgba(16,185,129,.14),transparent 62%),
+      linear-gradient(150deg,#eef3fb 0%,#dfe7f4 100%)}
+  .card{position:relative;flex:1;border:1px solid rgba(148,163,184,.38);border-radius:32px;
+    background:rgba(255,255,255,.72);box-shadow:0 24px 70px rgba(23,35,58,.16);
+    padding:52px 56px 44px;display:flex;flex-direction:column;justify-content:space-between;
+    -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+  .brand{display:flex;align-items:center;gap:26px}
+  .logo{width:104px;height:104px;border-radius:26px;box-shadow:0 10px 28px rgba(37,99,235,.22)}
+  .names{display:flex;flex-direction:column;line-height:1.08}
+  .en{font-size:56px;font-weight:800;letter-spacing:-1.2px}
+  .zh{font-size:28px;font-weight:600;color:#52607a;margin-top:8px;letter-spacing:2px}
+  h1{font-size:44px;line-height:1.24;font-weight:750;letter-spacing:-.6px;margin-top:26px}
+  h1 .grad{background:linear-gradient(92deg,#2563eb,#7c3aed 55%,#0891b2);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-size:24px;color:#52607a;margin-top:16px;line-height:1.5}
+  .chips{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap}
+  .chips span{font-size:19px;font-weight:600;color:#1d4ed8;background:rgba(37,99,235,.10);
+    border:1px solid rgba(37,99,235,.20);border-radius:999px;padding:7px 18px}
+  .foot{display:flex;align-items:center;justify-content:space-between;margin-top:26px;padding:0 6px}
+  .url{font-size:24px;font-weight:700;color:#1d4ed8;letter-spacing:.4px}
+  .tag{font-size:19px;color:#52607a;font-weight:600}
+</style></head>
+<body><div class="canvas"><div class="card">
+  <div class="brand"><img class="logo" src="../site/logo.png" alt="">
+    <div class="names"><div class="en">Skills Lingo</div><div class="zh">Skills 译站</div></div></div>
+  <div><h1>Agent skill viewer &amp; translator<br><span class="grad">for .agents and 30+ AI agents</span></h1>
+    <p class="sub">Bilingual reading · source attribution · multi-root dedup · categorized summaries</p>
+    <div class="chips"><span>Local-first</span><span>Read-only</span><span>MIT open source</span><span>No telemetry</span></div></div>
+</div>
+<div class="foot"><span class="url">skillslingo.ink</span><span class="tag">30+ agents · Windows desktop + Web</span></div>
+</div></body></html>
