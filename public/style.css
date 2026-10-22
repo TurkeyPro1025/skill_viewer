@@ -248,7 +248,35 @@ body::before {
   box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px var(--accent-glow);
 }
 
-/* 显示密度单选(顶栏):玻璃胶囊,选中项主题蓝 */
+/* 界面语言选择(顶栏):玻璃胶囊,只列已就绪语言 */
+.language-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.language-picker-label {
+  font-size: 11px;
+  color: var(--ink-3);
+  user-select: none;
+}
+.language-picker select {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 12px var(--font-ui);
+  padding: 3px 2px;
+  outline: none;
+  cursor: pointer;
+}
+.language-picker select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+/* 显示密度单选(设置页):玻璃胶囊,选中项主题蓝 */
 .density-toggle {
   display: inline-flex;
   align-items: center;
@@ -259,12 +287,6 @@ body::before {
   background: var(--card);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
-}
-.density-toggle-label {
-  font-size: 11px;
-  color: var(--ink-3);
-  padding: 0 6px 0 8px;
-  user-select: none;
 }
 .density-opt {
   position: relative;
@@ -901,8 +923,9 @@ body::before {
 .settings-section { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
 .settings-section h3 { margin: 0 0 8px; font-size: 14px; }
 .field-row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
-.field-row label { flex: 0 0 68px; color: var(--ink); font-size: 12.5px; font-weight: 600; }
-.field-row input, .field-row select {
+/* 只作用于字段标题;密度胶囊内的选项 label 有独立样式 */
+.field-row > label { flex: 0 0 68px; color: var(--ink); font-size: 12.5px; font-weight: 600; }
+.field-row input:not([type="radio"]), .field-row select {
   flex: 1;
   min-width: 0;
   padding: 7px 10px;
@@ -913,7 +936,7 @@ body::before {
   color: var(--ink);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.field-row input:focus, .field-row select:focus {
+.field-row input:not([type="radio"]):focus, .field-row select:focus {
   border-color: var(--accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft);

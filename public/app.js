@@ -21,6 +21,74 @@ const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+/* ============ i18n(语言包 public/locales.json:单文件、含全部语言) ============ */
+const LANGUAGE_KEY = 'skills-lingo:language';
+const I18N = { lang: 'zh', pack: null, dict: {}, fallback: {} };
+
+function detectLanguage() {
+  try {
+    const saved = localStorage.getItem(LANGUAGE_KEY);
+    if (saved === 'zh' || saved === 'en') return saved;
+  } catch { /* 隐私模式等场景静默 */ }
+  return (navigator.language || '').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+}
+
+async function initI18n() {
+  I18N.lang = detectLanguage();
+  try {
+    const res = await fetch('/locales.json');
+    const pack = await res.json();
+    I18N.pack = pack;
+    I18N.dict = pack[I18N.lang] || pack.zh || {};
+    I18N.fallback = pack.zh || {};
+  } catch {
+    I18N.pack = { languages: [{ code: 'zh', label: '中文' }], zh: {} };
+    I18N.dict = {};
+    I18N.fallback = {};
+  }
+  document.documentElement.lang = I18N.lang === 'zh' ? 'zh-CN' : I18N.lang;
+  document.title = t('app.title');
+  applyStaticI18n();
+}
+
+function hasKey(key) {
+  return Object.prototype.hasOwnProperty.call(I18N.dict, key)
+    || Object.prototype.hasOwnProperty.call(I18N.fallback, key);
+}
+
+/** 词条渲染:{name} 占位符插值;缺失回退中文并告警(开发期可见) */
+function t(key, params) {
+  const raw = hasKey(key) ? (I18N.dict[key] ?? I18N.fallback[key]) : undefined;
+  if (raw === undefined) {
+    if (I18N.pack) console.warn('[i18n] missing key:', key);
+    return key;
+  }
+  return String(raw).replace(/\{(\w+)\}/g, (m, k) => (params && params[k] !== undefined ? String(params[k]) : m));
+}
+
+function applyStaticI18n() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel)); });
+}
+
+/** 服务端错误码 → 语言包;未知码回退服务端 message */
+function errText(err) {
+  if (!err) return '';
+  const key = `error.${err.code}`;
+  if (err.code && hasKey(key)) return t(key, err.params || {});
+  return err.message || err.code || '';
+}
+
+/** 连通测试结果的 code → 语言包;旧结构回退 error 字符串 */
+function connectivityText(obj) {
+  if (!obj) return '';
+  const key = `error.${obj.code}`;
+  if (obj.code && hasKey(key)) return t(key, obj.params || {});
+  return obj.error || '';
+}
+
 async function api(path, opts) {
   const res = await fetch(path, opts);
   let body = null;
@@ -28,6 +96,7 @@ async function api(path, opts) {
   if (!res.ok) {
     const err = new Error(body?.error?.message || `HTTP ${res.status}`);
     err.code = body?.error?.code;
+    err.params = body?.error?.params;
     err.status = res.status;
     throw err;
   }
@@ -68,6 +137,42 @@ function applyAppearance() {
   });
 }
 
+/* ============ 语言设置(单一设置:界面文案 + 译文目标语言) ============ */
+
+/** 每次启动把本地语言偏好同步给服务端(服务端据此生成对应语言的概述/分类) */
+function syncLanguageToServer() {
+  api('/api/settings/language', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ language: I18N.lang }),
+  }).catch(() => { /* 同步失败不阻塞页面,翻译请求仍带 lang */ });
+}
+
+function initLanguageSelect() {
+  const sel = $('topbar-language');
+  if (!sel) return;
+  const languages = (I18N.pack?.languages || []).filter((l) => l && l.code && I18N.pack[l.code]);
+  sel.innerHTML = languages
+    .map((l) => `<option value="${esc(l.code)}">${esc(l.label || l.code)}</option>`)
+    .join('');
+  sel.value = I18N.lang;
+  sel.addEventListener('change', () => changeLanguage(sel.value));
+}
+
+/** 语言切换 = 保存偏好 → 整页刷新一次(PRD 决策;无刷新热切换留待将来) */
+async function changeLanguage(lang) {
+  if (lang === I18N.lang) return;
+  try { localStorage.setItem(LANGUAGE_KEY, lang); } catch { /* 静默 */ }
+  try {
+    await api('/api/settings/language', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: lang }),
+    });
+  } catch { /* 本地偏好已保存,刷新后启动同步会重试 */ }
+  window.location.reload();
+}
+
 /* 内联图标(fill=currentColor,颜色随文字):外链跳转 / 链接标记 */
 const ICO_DUMP_TO = '<svg class="ico-svg" viewBox="0 0 1024 1024" aria-hidden="true"><path d="M831.875 960.01H63.99V192.125h351.948a31.995 31.995 0 0 0 31.995-31.996 31.995 31.995 0 0 0-31.995-31.995H63.99A63.99 63.99 0 0 0 0 192.124V960.01A63.99 63.99 0 0 0 63.99 1024h767.885a63.99 63.99 0 0 0 63.99-63.99V608.062a31.995 31.995 0 0 0-31.994-31.995 31.995 31.995 0 0 0-31.996 31.995z" fill="currentColor"/><path d="M1023.847 25.75c0-0.896 0-1.792-0.768-2.688a31.611 31.611 0 0 0-1.024-3.327 31.74 31.74 0 0 0-1.536-3.072c0-0.768-0.768-1.664-1.408-2.432a32.123 32.123 0 0 0-8.83-8.83l-3.072-1.152-3.071-1.664-3.328-1.024-2.56-1.408a32.123 32.123 0 0 0-6.27 0H544.045a31.995 31.995 0 0 0-32.123 31.996 31.995 31.995 0 0 0 31.995 31.995h371.145L361.29 617.404a31.995 31.995 0 1 0 45.305 45.306l553.261-553.26v371.143a31.995 31.995 0 0 0 31.995 31.484 31.995 31.995 0 0 0 31.996-31.995V32.149a32.123 32.123 0 0 0 0-6.4z" fill="currentColor"/></svg>';
 const ICO_LINK = '<svg class="ico-svg" viewBox="0 0 1024 1024" aria-hidden="true"><path d="M762.24 506.88a32 32 0 0 1-46.08-44.16l55.68-58.24a125.76 125.76 0 0 0-12.16-171.2c-48.32-50.24-119.68-54.72-160-12.48L444.16 384a125.76 125.76 0 0 0 12.16 171.2 32 32 0 0 1 0 45.12 32 32 0 0 1-45.44 0 189.44 189.44 0 0 1-12.16-259.52l155.52-162.24c66.88-69.76 180.48-64 252.8 12.8A189.44 189.44 0 0 1 818.24 448z" fill="currentColor"/><path d="M229.76 517.12a32 32 0 0 1 46.08 44.16l-55.68 58.24a125.76 125.76 0 0 0 12.16 171.2c48.32 50.24 119.68 54.72 160 12.48L547.84 640a125.76 125.76 0 0 0-12.16-171.2 32 32 0 0 1 0-45.12 32 32 0 0 1 45.44 0 189.44 189.44 0 0 1 12.16 259.52L437.76 845.44c-66.88 69.76-180.48 64-252.8-12.8A189.44 189.44 0 0 1 173.76 576z" fill="currentColor"/></svg>';
@@ -97,6 +202,9 @@ function rootBadgeClass(label) {
 
 /* ============ 初始化 ============ */
 async function boot() {
+  await initI18n();
+  syncLanguageToServer();
+  initLanguageSelect();
   S.appearance = loadAppearance();
   applyAppearance();
   document.querySelectorAll('input[name="density"]').forEach((r) => {
@@ -158,9 +266,10 @@ async function boot() {
 
 async function refreshData() {
   try {
+    const langQuery = `?lang=${encodeURIComponent(I18N.lang)}`;
     const [skills, categories] = await Promise.all([
-      api('/api/skills'),
-      api('/api/categories'),
+      api(`/api/skills${langQuery}`),
+      api(`/api/categories${langQuery}`),
     ]);
     S.data = skills;
     S.data.categories = categories.categories || [];
@@ -168,8 +277,8 @@ async function refreshData() {
     $('stats-bar').hidden = false;
     $('stats-line').hidden = false;
     $('stats-line').textContent = err.code === 'no_index'
-      ? '首次分析进行中…'
-      : `加载失败：${err.message}`;
+      ? t('stats.firstAnalysis')
+      : t('stats.loadFailed', { message: errText(err) });
     return;
   }
   renderCategories();
@@ -195,10 +304,14 @@ async function pollStatus() {
 async function manualUpdate() {
   $('btn-update').disabled = true;
   try {
-    await api('/api/analyze', { method: 'POST', body: '{}' });
-    toast('已开始重新分析（增量：内容未变不调 API）');
+    await api('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lang: I18N.lang }),
+    });
+    toast(t('toast.updateStarted'));
   } catch (err) {
-    toast(`触发失败：${err.message}`, true);
+    toast(t('toast.updateFailed', { message: errText(err) }), true);
   } finally {
     $('btn-update').disabled = false;
   }
@@ -226,7 +339,7 @@ function renderProgress() {
     if (ph?.phase === 'done' && running) {
       wrap.hidden = false;
       $('progress-fill').style.width = '100%';
-      $('progress-text').textContent = ph.detail;
+      $('progress-text').textContent = progressDetail(ph);
       return;
     }
     wrap.hidden = true;
@@ -235,11 +348,18 @@ function renderProgress() {
   wrap.hidden = false;
   const pct = ph.total ? Math.round((ph.done / ph.total) * 100) : 12;
   $('progress-fill').style.width = `${Math.max(pct, 8)}%`;
-  $('progress-text').textContent = `${phaseName(ph.phase)} ${ph.done}/${ph.total || '?'} · ${ph.detail || ''}`;
+  const detail = progressDetail(ph);
+  $('progress-text').textContent = `${phaseName(ph.phase)} ${ph.done}/${ph.total || '?'}${detail ? ` · ${detail}` : ''}`;
+}
+
+/** 进度明细:服务端 code + params 优先,旧进程只有 detail 时回退 */
+function progressDetail(ph) {
+  if (ph?.code && hasKey(ph.code)) return t(ph.code, ph.params || {});
+  return ph?.detail || '';
 }
 
 function phaseName(p) {
-  return { scan: '扫描', attribute: '归属', summaries: '概述', pretranslate: '预翻译入口文档' }[p] || p;
+  return hasKey(`phase.${p}`) ? t(`phase.${p}`) : p;
 }
 
 /* ============ 分类筛选 ============ */
@@ -317,15 +437,17 @@ function renderGroups() {
       if (S.collapsed.has(group.key)) S.collapsed.delete(group.key); else S.collapsed.add(group.key);
       renderGroups();
     };
+    const groupName = group.nameKey ? t(group.nameKey) : group.name;
+    const groupSummary = group.repoSummaryKey ? t(group.repoSummaryKey) : group.repoSummary;
     const ghBtn = group.sourceUrl
-      ? `<a class="gh-link" href="${esc(group.sourceUrl)}" target="_blank" rel="noreferrer" title="在 GitHub 打开 ${esc(group.name)}" onclick="event.stopPropagation()">${ICO_DUMP_TO}<span>GitHub</span></a>`
+      ? `<a class="gh-link" href="${esc(group.sourceUrl)}" target="_blank" rel="noreferrer" title="${esc(t('group.githubTitle', { name: group.name }))}" onclick="event.stopPropagation()">${ICO_DUMP_TO}<span>GitHub</span></a>`
       : '';
     head.innerHTML = `
       <span class="caret">▼</span>
-      <span class="group-title">${esc(group.name)}</span>
+      <span class="group-title">${esc(groupName)}</span>
       ${ghBtn}
-      <span class="group-count">${visible} 技能</span>
-      ${group.repoSummary ? `<p class="group-summary">${esc(group.repoSummary)}</p>` : ''}`;
+      <span class="group-count">${esc(t('group.skills', { n: visible }))}</span>
+      ${groupSummary ? `<p class="group-summary">${esc(groupSummary)}</p>` : ''}`;
     sec.appendChild(head);
 
     const body = document.createElement('div');
@@ -335,7 +457,7 @@ function renderGroups() {
       if (sg.name === '__lowconf__') {
         const det = document.createElement('details');
         det.className = 'subgroup lowconf';
-        det.innerHTML = `<summary><span class="caret">▼</span>低置信度推断<small>${sg.skills.length}</small></summary>`;
+        det.innerHTML = `<summary><span class="caret">▼</span>${esc(t('group.lowConfidence'))}<small>${sg.skills.length}</small></summary>`;
         det.appendChild(cardsGrid(sg.skills));
         body.appendChild(det);
         continue;
@@ -361,10 +483,8 @@ function renderGroups() {
   if (filtering) {
     $('st-match').hidden = false;
     $('st-match-n').textContent = visibleTotal;
-    $('st-match-label').textContent = `/ ${S.data.stats.entities} 匹配`;
-    $('empty-hint').textContent = S.q
-      ? '按 Ctrl+K 回到搜索，试试更短的关键词'
-      : '点击上方高亮的分类胶囊可取消筛选';
+    $('st-match-label').textContent = t('stats.matchLabel', { total: S.data.stats.entities });
+    $('empty-hint').textContent = S.q ? t('empty.hintSearch') : t('empty.hintCategory');
   } else {
     $('st-match').hidden = true;
     $('empty-hint').textContent = '';
@@ -436,29 +556,30 @@ function cardEl(card) {
   const badges = [];
   const roots = card.roots || [];
   for (const r of roots) {
-    badges.push(`<span class="badge badge-root${r.linked ? ' linked' : ''}${rootBadgeClass(r.label)}" title="${r.linked ? '链接到该工具根目录' : '实体所在根目录'}">${esc(r.label)}${r.linked ? ICO_LINK : ''}</span>`);
+    badges.push(`<span class="badge badge-root${r.linked ? ' linked' : ''}${rootBadgeClass(r.label)}" title="${esc(r.linked ? t('badge.rootLinkedTitle') : t('badge.rootTitle'))}">${esc(r.label)}${r.linked ? ICO_LINK : ''}</span>`);
   }
   // 根徽章排满一行才折叠为「+N」(渲染后由 fitRootBadges 测量);悬停 +N 弹出剩余徽章
   if (roots.length >= 2) {
-    badges.push('<span class="badge badge-root badge-more" title="其余生效的根目录">+<span class="badge-more-n"></span><span class="badge-flyout"></span></span>');
+    badges.push(`<span class="badge badge-root badge-more" title="${esc(t('badge.moreTitle'))}">+<span class="badge-more-n"></span><span class="badge-flyout"></span></span>`);
   }
-  if (card.copyCount > 1) badges.push(`<span class="badge badge-copy" title="内容一致的独立拷贝已合并">${card.copyCount} 份拷贝已合并</span>`);
+  if (card.copyCount > 1) badges.push(`<span class="badge badge-copy" title="${esc(t('badge.copiesMerged', { n: card.copyCount }))}">${esc(t('badge.copiesMerged', { n: card.copyCount }))}</span>`);
   const a = card.attribution;
   if (a) {
     // 创作上游紧随根目录徽章:一行放得下就同行,放不下自然换行
-    if (a.upstream) badges.push(`<span class="badge badge-upstream" title="frontmatter 记录的创作上游（非安装来源）">创作上游：${esc(a.upstream.repo)}</span>`);
+    if (a.upstream) badges.push(`<span class="badge badge-upstream" title="${esc(t('badge.upstreamTitle'))}">${esc(t('badge.upstream', { repo: a.upstream.repo }))}</span>`);
     if (a.inferred && !a.confirmed) {
-      badges.push(`<span class="badge badge-infer">推断${a.confidence ? ' · ' + esc(confZh(a.confidence)) : ''} → ${esc(a.repo)}</span>`);
+      const conf = a.confidence ? ` · ${confidenceLabel(a.confidence)}` : '';
+      badges.push(`<span class="badge badge-infer">${esc(t('badge.inferred', { confidence: conf, repo: a.repo }))}</span>`);
     } else if (a.inferred && a.confirmed) {
-      badges.push(`<span class="badge badge-confirm" title="你已确认此推断">已确认推断</span>`);
+      badges.push(`<span class="badge badge-confirm" title="${esc(t('badge.confirmedTitle'))}">${esc(t('badge.confirmed'))}</span>`);
     }
-    if (a.method === 'overrides') badges.push('<span class="badge badge-confirm" title="手动归组">手动</span>');
+    if (a.method === 'overrides') badges.push(`<span class="badge badge-confirm" title="${esc(t('badge.manualTitle'))}">${esc(t('badge.manual'))}</span>`);
   }
   if (card.pendingInference) {
-    badges.push(`<span class="badge badge-infer" title="LLM 推断候选（置信度不够未自动纳入）。到「整理归属」勾选后可一键确认。">推断候选：${esc(card.pendingInference.repo)} · ${esc(confZh(card.pendingInference.confidence))}</span>`);
+    badges.push(`<span class="badge badge-infer" title="${esc(t('badge.pendingInferenceTitle'))}">${esc(t('badge.pendingInference', { repo: card.pendingInference.repo, confidence: confidenceLabel(card.pendingInference.confidence) }))}</span>`);
   }
-  if (card.forked) badges.push(`<span class="badge badge-fork" title="同名技能内容分岔，作为独立版本展示">变体 · ${esc(card.versionLabel || '')}</span>`);
-  if (card.entryLanguage === 'zh') badges.push('<span class="badge badge-zh">中文</span>');
+  if (card.forked) badges.push(`<span class="badge badge-fork" title="${esc(t('badge.forkTitle'))}">${esc(t('badge.fork', { label: card.versionLabel || '' }))}</span>`);
+  if (card.entryLanguage === 'zh') badges.push(`<span class="badge badge-zh">${esc(t('badge.zh'))}</span>`);
 
   const cats = (card.categories || [])
     .map((c) => `<span class="cat-tag" data-cat="${esc(c)}">${esc(c)}</span>`).join('');
@@ -472,7 +593,7 @@ function cardEl(card) {
     <div class="badges">${badges.join('')}</div>
     <div class="card-summary ${card.summarySource || ''}">${esc(card.summary || '')}</div>
     ${card.categories?.length ? `<div class="card-cats">${cats}</div>` : ''}
-    ${card.summarySource === 'fallback' ? '' : `<div class="card-desc">${esc(card.description || '')}</div>`}`;
+    ${['fallback', 'description', 'frontmatter'].includes(card.summarySource) ? '' : `<div class="card-desc">${esc(card.description || '')}</div>`}`;
 
   el.querySelector('.card-check').onclick = (e) => {
     e.stopPropagation();
@@ -499,15 +620,15 @@ function cardEl(card) {
   return el;
 }
 
-function confZh(c) {
-  return { high: '高', medium: '中', low: '低' }[c] || c;
+function confidenceLabel(c) {
+  return hasKey(`confidence.${c}`) ? t(`confidence.${c}`) : c;
 }
 
 /* ============ 整理归属(多选 + overrides) ============ */
 function toggleSelectMode(force) {
   S.selectMode = typeof force === 'boolean' ? force : !S.selectMode;
   if (!S.selectMode) S.selection.clear();
-  $('organize-label').textContent = S.selectMode ? '退出整理' : '整理归属';
+  $('organize-label').textContent = S.selectMode ? t('topbar.organizeExit') : t('topbar.organize');
   // ghost 与 primary 互斥:共存时 hover 会白字白底(.btn-ghost:hover 白底 + .btn-primary:hover 白字)
   $('btn-organize').classList.toggle('btn-primary', S.selectMode);
   $('btn-organize').classList.toggle('btn-ghost', !S.selectMode);
@@ -518,12 +639,12 @@ function toggleSelectMode(force) {
 function renderSelectionBar() {
   const bar = $('selection-bar');
   bar.hidden = !S.selectMode;
-  $('selection-count').textContent = `已选 ${S.selection.size} 个技能`;
+  $('selection-count').textContent = t('selection.count', { n: S.selection.size });
   const sel = $('repo-select');
   const repos = (S.data?.groups || []).filter((g) => g.key !== '__unknown__').map((g) => g.repo);
-  sel.innerHTML = '<option value="">— 选择目标仓库 —</option>' +
+  sel.innerHTML = `<option value="">${esc(t('selection.repoPlaceholder'))}</option>` +
     repos.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join('') +
-    '<option value="__custom__">✎ 输入自定义仓库…</option>';
+    `<option value="__custom__">${esc(t('selection.customRepo'))}</option>`;
   $('btn-assign').disabled = !sel.value; // 未选目标仓库时置灰
   const hasInfer = [...S.selection].some((id) => {
     const c = (S.data?.skills || []).find((x) => x.id === id);
@@ -533,10 +654,10 @@ function renderSelectionBar() {
 }
 
 async function assignSelection(repo) {
-  if (!S.selection.size) return toast('先勾选技能卡片', true);
+  if (!S.selection.size) return toast(t('toast.selectFirst'), true);
   let target = repo;
   if (repo === '__custom__') {
-    target = window.prompt('目标仓库（owner/repo），留空则移入未知来源：', '');
+    target = window.prompt(t('selection.customPrompt'), '');
     if (target === null) return;
     target = target.trim();
   } else if (!repo) {
@@ -553,31 +674,31 @@ async function executeAssign(target) {
     await api('/api/overrides', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skillIds: [...S.selection], repo: target || null }),
+      body: JSON.stringify({ skillIds: [...S.selection], repo: target || null, lang: I18N.lang }),
     });
-    toast(`已归组 ${S.selection.size} 个技能`);
+    toast(t('toast.assigned', { n: S.selection.size }));
     S.selection.clear();
     renderSelectionBar();
     await refreshData();
   } catch (err) {
-    toast(`归组失败：${err.message}`, true);
+    toast(t('toast.assignFailed', { message: errText(err) }), true);
   }
 }
 
 async function confirmInference() {
-  if (!S.selection.size) return toast('先勾选要确认的技能', true);
+  if (!S.selection.size) return toast(t('toast.confirmFirst'), true);
   try {
     await api('/api/confirm-inference', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ skillIds: [...S.selection] }),
+      body: JSON.stringify({ skillIds: [...S.selection], lang: I18N.lang }),
     });
-    toast('已确认推断归属');
+    toast(t('toast.confirmed'));
     S.selection.clear();
     renderSelectionBar();
     await refreshData();
   } catch (err) {
-    toast(`确认失败：${err.message}`, true);
+    toast(t('toast.confirmFailed', { message: errText(err) }), true);
   }
 }
 
@@ -585,9 +706,9 @@ async function confirmInference() {
 async function openViewer(skillId, docPath) {
   let detail;
   try {
-    detail = await api(`/api/skills/${skillId}`);
+    detail = await api(`/api/skills/${skillId}?lang=${encodeURIComponent(I18N.lang)}`);
   } catch (err) {
-    return toast(`打开失败：${err.message}`, true);
+    return toast(t('toast.openFailed', { message: errText(err) }), true);
   }
   S.viewer = { skill: detail, doc: null, translation: null };
   $('viewer').hidden = false;
@@ -627,7 +748,7 @@ function renderDocList(detail) {
   if (detail.copies?.length) {
     const note = document.createElement('div');
     note.style.cssText = 'margin-top:10px;color:var(--ink-3);font-size:11px';
-    note.textContent = `另有 ${detail.copies.length} 份一致拷贝（已合并）`;
+    note.textContent = t('viewer.copies', { n: detail.copies.length });
     box.appendChild(note);
   }
 }
@@ -642,18 +763,19 @@ async function loadDoc(docPath) {
   try {
     doc = await api(`/api/skills/${v.skill.id}/doc?path=${encodeURIComponent(docPath)}`);
   } catch (err) {
-    $('viewer-content').innerHTML = `<div class="doc-note error">文档读取失败：${esc(err.message)}</div>`;
+    $('viewer-content').innerHTML = `<div class="doc-note error">${esc(t('viewer.docError', { message: errText(err) }))}</div>`;
     return;
   }
   v.doc = doc;
   v.translation = null;
 
-  if (doc.language === 'zh') {
+  // 文档语言 = 当前界面语言 → 单栏直出(不翻译、不耗积分);否则左右对照
+  if (doc.language === I18N.lang) {
     renderSingleColumn(doc);
     return;
   }
   renderBilingual(doc, null);
-  // 英文文档:尝试取译文(缓存命中则直接展示)
+  // 非当前语言文档:尝试取译文(缓存命中则直接展示)
   fetchTranslation();
 }
 
@@ -662,27 +784,28 @@ async function fetchTranslation({ retry } = {}) {
   if (!v) return;
   const action = retry ? 'retry' : 'translate';
   try {
-    setStatusBanner(`<span class="spin"></span>${retry ? '重试失败块' : '翻译中'}…（4 积分/次，内容未变会缓存；长文档自动分块，可能需要数十秒）`);
-    const t = await api(`/api/skills/${v.skill.id}/${action}`, {
+    setStatusBanner(`<span class="spin"></span>${esc(retry ? t('viewer.retryingBanner') : t('viewer.translatingBanner'))}`);
+    const tr = await api(`/api/skills/${v.skill.id}/${action}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: v.doc.path }),
+      body: JSON.stringify({ path: v.doc.path, lang: I18N.lang }),
     });
-    if (t.language === 'zh' || !t.blocks) {
+    // 文档语言与界面语言一致(服务端判定)→ 单栏直出
+    if (tr.language === I18N.lang || !tr.blocks) {
       renderSingleColumn(v.doc);
       return;
     }
-    v.translation = t;
+    v.translation = tr;
     setStatusBanner('');
-    renderBilingual(v.doc, t);
+    renderBilingual(v.doc, tr);
   } catch (err) {
     if (err.code === 'consent_required') {
-      setStatusBanner('开启中英对照需要先同意隐私提示。', false);
+      setStatusBanner(t('viewer.consentNeeded'), false);
       showConsent();
     } else if (err.code === 'provider_unconfigured') {
-      setStatusBanner('翻译未配置：到主页右上角 ⚙ 设置保存 UApiPro API key 后，即可开启中英对照阅读。', false);
+      setStatusBanner(t('viewer.providerMissing'), false);
     } else {
-      setStatusBanner(`翻译失败：${esc(err.message)} <button class="btn" id="btn-retry-trans">重试</button>`, true);
+      setStatusBanner(`${esc(t('viewer.translateFailedBanner', { message: errText(err) }))} <button class="btn" id="btn-retry-trans">${esc(t('viewer.retry'))}</button>`, true);
       $('btn-retry-trans').onclick = () => fetchTranslation({ retry: true });
     }
   }
@@ -711,7 +834,7 @@ let consentSaving = false;
 /** 查看器内的“暂不翻译”提示:提供稳定的重新同意入口 */
 function showConsentPausedBanner() {
   if ($('viewer').hidden) return;
-  setStatusBanner('未同意新的翻译请求，已有译文仍可查看。<button class="btn" id="btn-open-consent">开启中英对照</button>', false);
+  setStatusBanner(`${esc(t('viewer.consentPaused'))}<button class="btn" id="btn-open-consent">${esc(t('viewer.openBilingual'))}</button>`, false);
   $('btn-open-consent').onclick = showConsent;
 }
 
@@ -739,7 +862,7 @@ function hideConsent(accept) {
       // 保持弹窗开启,让用户可以直接重试,而不是只留一条 toast
       consentSaving = false;
       $('consent-modal').hidden = false;
-      toast(`同意失败：${err.message}`, true);
+      toast(t('toast.consentFailed', { message: errText(err) }), true);
     });
 }
 
@@ -754,14 +877,14 @@ async function doRevokeConsent() {
     S.status = await api('/api/status');
     if (!$('info-popover').hidden) renderInfo();
     showConsentPausedBanner();
-    toast('已撤回同意，不再发起新的翻译请求');
+    toast(t('toast.revoked'));
   } catch (err) {
-    toast(`撤回失败：${err.message}`, true);
+    toast(t('toast.revokeFailed', { message: errText(err) }), true);
   }
 }
 
 function renderSingleColumn(doc) {
-  $('viewer-meta').innerHTML = '<span class="badge badge-zh">中文原文 · 单栏直出</span>';
+  $('viewer-meta').innerHTML = `<span class="badge">${esc(t('viewer.singleColumn'))}</span>`;
   const box = $('viewer-content');
   box.innerHTML = '<div class="single-col md"></div>';
   const col = box.firstChild;
@@ -779,16 +902,16 @@ function attachCodeCopy(root) {
     const btn = document.createElement('button');
     btn.className = 'code-copy';
     btn.type = 'button';
-    btn.textContent = '复制';
+    btn.textContent = t('viewer.copy');
     btn.onclick = async () => {
       try {
         await navigator.clipboard.writeText(pre.querySelector('code')?.textContent ?? pre.textContent);
-        btn.textContent = '已复制';
+        btn.textContent = t('viewer.copied');
       } catch {
-        btn.textContent = '复制失败';
+        btn.textContent = t('viewer.copyFailed');
       }
       btn.disabled = true;
-      setTimeout(() => { btn.textContent = '复制'; btn.disabled = false; }, 1500);
+      setTimeout(() => { btn.textContent = t('viewer.copy'); btn.disabled = false; }, 1500);
     };
     pre.appendChild(btn);
   });
@@ -799,15 +922,15 @@ function renderBilingual(doc, translation) {
   const failed = [...tmap.values()].some((b) => b.status === 'failed');
   const cached = Boolean(translation?.cached);
   $('viewer-meta').innerHTML =
-    (cached ? '<span class="badge badge-confirm">已缓存 · 0 积分</span>' : '') +
-    (failed ? '<button class="btn" id="btn-retry-doc">重试失败块</button>' : '');
+    (cached ? `<span class="badge badge-confirm">${esc(t('viewer.cached'))}</span>` : '') +
+    (failed ? `<button class="btn" id="btn-retry-doc">${esc(t('viewer.retryFailed'))}</button>` : '');
 
   const retryBtn = $('btn-retry-doc');
   if (retryBtn) retryBtn.onclick = () => fetchTranslation({ retry: true });
 
   const box = $('viewer-content');
   // 列头固定在滚动区外(结构性置顶),.bilingual 才是滚动元素
-  box.innerHTML = '<div class="bilingual-head"><span>原文</span><span>译文</span></div><div class="bilingual"></div>';
+  box.innerHTML = `<div class="bilingual-head"><span>${esc(t('viewer.original'))}</span><span>${esc(t('viewer.translation'))}</span></div><div class="bilingual"></div>`;
   const wrap = box.querySelector('.bilingual');
   const skillId = S.viewer.skill.id;
 
@@ -818,18 +941,18 @@ function renderBilingual(doc, translation) {
       row.innerHTML = `<div class="md">${renderBlockMarkdown(b, skillId, doc.path)}</div>`;
     } else {
       row.className = 'brow';
-      const t = tmap.get(b.id);
+      const tb = tmap.get(b.id);
       let dstHtml;
       if (!translation) {
-        dstHtml = '<div class="b-dst empty-note">等待翻译…</div>';
-      } else if (t?.status === 'ok') {
-        dstHtml = `<div class="b-dst md">${renderBlockMarkdown({ ...b, markdown: t.translated }, skillId, doc.path)}</div>`;
-      } else if (t?.status === 'failed') {
-        dstHtml = `<div class="b-dst failed">⚠ 翻译失败：${esc(t.error || '未知错误')}</div>`;
-      } else if (t?.status === 'pending') {
-        dstHtml = '<div class="b-dst pending">翻译中…</div>';
+        dstHtml = `<div class="b-dst empty-note">${esc(t('viewer.waiting'))}</div>`;
+      } else if (tb?.status === 'ok') {
+        dstHtml = `<div class="b-dst md">${renderBlockMarkdown({ ...b, markdown: tb.translated }, skillId, doc.path)}</div>`;
+      } else if (tb?.status === 'failed') {
+        dstHtml = `<div class="b-dst failed">${esc(t('viewer.translateFailed', { error: tb.error || t('viewer.unknownError') }))}</div>`;
+      } else if (tb?.status === 'pending') {
+        dstHtml = `<div class="b-dst pending">${esc(t('viewer.translating'))}</div>`;
       } else {
-        dstHtml = '<div class="b-dst empty-note">（未翻译）</div>';
+        dstHtml = `<div class="b-dst empty-note">${esc(t('viewer.untranslated'))}</div>`;
       }
       row.innerHTML = `<div class="b-src md">${renderBlockMarkdown(b, skillId, doc.path)}</div>${dstHtml}`;
     }
@@ -936,7 +1059,7 @@ async function openSettings() {
   try {
     await loadSettingsState();
   } catch (err) {
-    toast(`设置加载失败：${err.message}`, true);
+    toast(t('toast.settingsLoadFailed', { message: errText(err) }), true);
   }
 }
 
@@ -958,12 +1081,12 @@ async function loadSettingsState() {
   const tk = $('set-translate-key');
   tk.value = '';
   tk.placeholder = st.translate.maskedKey
-    ? `已保存：${st.translate.maskedKey}`
-    : '输入 API key（留空 = 不变）';
+    ? t('settings.savedMasked', { mask: st.translate.maskedKey })
+    : t('settings.enterKey');
   $('btn-clear-translate').hidden = st.translate.source !== 'store';
 
   const sel = $('llm-preset');
-  sel.innerHTML = st.presets.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  sel.innerHTML = st.presets.map((p) => `<option value="${esc(p.id)}">${esc(presetLabel(p))}</option>`).join('');
   sel.value = st.llm.preset || 'custom';
 
   const bu = $('llm-baseurl');
@@ -971,8 +1094,8 @@ async function loadSettingsState() {
   const lk = $('llm-key');
   lk.value = '';
   lk.placeholder = st.llm.maskedKey
-    ? `已保存：${st.llm.maskedKey}`
-    : '输入 API key（留空 = 不变）';
+    ? t('settings.savedMasked', { mask: st.llm.maskedKey })
+    : t('settings.enterKey');
   $('btn-clear-llm').hidden = st.llm.source !== 'store';
 
   S.savedModelId = st.llm.model || '';
@@ -982,6 +1105,12 @@ async function loadSettingsState() {
 
 function presetOf(id) {
   return (S.settings?.presets || []).find((p) => p.id === id) || null;
+}
+
+/** 预设名走语言包;贡献者新增未收录的预设时回退服务端返回的 name */
+function presetLabel(preset) {
+  const key = `preset.${preset.id}`;
+  return hasKey(key) ? t(key) : preset.name;
 }
 
 /* ---- 模型选择器:可搜索下拉;候选按服务商(预设|地址)隔离,显示 name、提交 id ---- */
@@ -1032,7 +1161,7 @@ function applyPresetSelection(fromUser) {
     // 用户主动切换 → 自动填充预设地址;打开弹窗 → 仅地址为空时补默认,不覆盖已存的中转站地址
     if (fromUser || !bu.value.trim()) bu.value = p.baseUrl;
   } else if (p) {
-    bu.placeholder = 'https://…/v1（OpenAI 兼容，可填中转站地址）';
+    bu.placeholder = t('settings.baseUrlPlaceholderCustom');
   }
   // 切服务商 = 候选切到该服务商自己的(拉取过 → 拉取结果整体替换;否则 预设 + 已存);API key 不受影响
   refreshModelOptions();
@@ -1049,7 +1178,7 @@ function renderModelList(show, query) {
   if (!hits.length) {
     const empty = document.createElement('div');
     empty.className = 'model-picker-empty';
-    empty.textContent = S.modelItems.length ? '无匹配模型' : '尚无候选：点上方「测试连通」自动拉取';
+    empty.textContent = S.modelItems.length ? t('settings.noMatch') : t('settings.noCandidates');
     list.appendChild(empty);
   } else {
     for (const it of hits) {
@@ -1114,9 +1243,9 @@ async function saveDesktopSettings() {
         closeToExit: $('set-close-exit').checked,
       }),
     });
-    toast('桌面设置已生效');
+    toast(t('toast.desktopSaved'));
   } catch (err) {
-    toast(`桌面设置保存失败：${err.message}`, true);
+    toast(t('toast.desktopSaveFailed', { message: errText(err) }), true);
   }
 }
 
@@ -1132,7 +1261,7 @@ function currentLlmFields() {
 }
 
 async function testLlmFromUI() {
-  setStatusLine('test-llm-status', '<span class="spin"></span>测试中…');
+  setStatusLine('test-llm-status', `<span class="spin"></span>${esc(t('settings.testing'))}`);
   $('btn-test-llm').disabled = true;
   try {
     const r = await api('/api/settings/test/llm', {
@@ -1141,8 +1270,8 @@ async function testLlmFromUI() {
       body: JSON.stringify(currentLlmFields()),
     });
     if (r.ok) {
-      const modelsNote = r.models?.length ? `，发现 ${r.models.length} 个模型（下拉已更新）` : '';
-      setStatusLine('test-llm-status', `✓ 连通正常，延迟 ${r.latencyMs} ms${modelsNote}`, 'ok');
+      const modelsNote = r.models?.length ? t('settings.llmModels', { n: r.models.length }) : '';
+      setStatusLine('test-llm-status', esc(t('settings.llmOk', { ms: r.latencyMs, modelsNote })), 'ok');
       if (r.models?.length) {
         // 后端两种返回都归一为 {id,name}:旧版进程返回字符串数组 ['id',…],新版返回 [{id,name}]
         // (常驻服务不热重载,前端必须兼容运行中进程的旧结构,否则 id 取不到、候选被滤空)
@@ -1157,36 +1286,36 @@ async function testLlmFromUI() {
         }
       }
     } else {
-      setStatusLine('test-llm-status', `✗ ${esc(r.error || '测试失败')}`, 'err');
+      setStatusLine('test-llm-status', esc(t('settings.testFailed', { error: connectivityText(r) })), 'err');
     }
   } catch (err) {
-    setStatusLine('test-llm-status', `✗ ${esc(err.message)}`, 'err');
+    setStatusLine('test-llm-status', esc(t('settings.testFailed', { error: errText(err) })), 'err');
   } finally {
     $('btn-test-llm').disabled = false;
   }
 }
 
 async function testTranslateFromUI(full) {
-  setStatusLine('test-translate-status', `<span class="spin"></span>${full ? '完整测试（消耗 4 积分）' : '测试中'}…`);
+  setStatusLine('test-translate-status', `<span class="spin"></span>${esc(full ? t('settings.testingFull') : t('settings.testing'))}`);
   const btn = full ? $('btn-test-translate-full') : $('btn-test-translate');
   btn.disabled = true;
   try {
     const r = await api('/api/settings/test/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full, apiKey: $('set-translate-key').value.trim() || undefined }),
+      body: JSON.stringify({ full, lang: I18N.lang, apiKey: $('set-translate-key').value.trim() || undefined }),
     });
     const parts = [];
-    parts.push(r.reachable ? '服务可达 ✓' : '服务不可达 ✗');
-    if (r.keyAccepted === true) parts.push('key 被接受 ✓');
-    if (r.keyAccepted === false) parts.push('key 无效 ✗(401)');
-    if (r.full?.ok) parts.push(`真实翻译成功："${r.full.sample}"`);
-    if (r.full && !r.full.ok) parts.push(`完整测试失败：${r.full.error}`);
-    if (r.error) parts.push(esc(r.error));
+    parts.push(r.reachable ? t('settings.translateReachable') : t('settings.translateUnreachable'));
+    if (r.keyAccepted === true) parts.push(t('settings.keyAccepted'));
+    if (r.keyAccepted === false) parts.push(t('settings.keyRejected'));
+    if (r.full?.ok) parts.push(t('settings.fullOk', { sample: r.full.sample }));
+    if (r.full && !r.full.ok) parts.push(t('settings.fullFailed', { error: connectivityText(r.full) }));
+    if (r.error && r.code !== 'auth_failed') parts.push(connectivityText(r));
     const ok = r.reachable && r.keyAccepted !== false && !(r.full && !r.full.ok);
-    setStatusLine('test-translate-status', parts.join(' · '), ok ? 'ok' : 'err');
+    setStatusLine('test-translate-status', parts.map(esc).join(' · '), ok ? 'ok' : 'err');
   } catch (err) {
-    setStatusLine('test-translate-status', `✗ ${esc(err.message)}`, 'err');
+    setStatusLine('test-translate-status', esc(t('settings.testFailed', { error: errText(err) })), 'err');
   } finally {
     btn.disabled = false;
   }
@@ -1205,15 +1334,15 @@ async function clearStoredKey(which) {
     // 只反映"已无存储密钥"这一事实,不重置用户正在填写的表单
     S.settings = await api('/api/settings');
     if (which === 'translate') {
-      $('set-translate-key').placeholder = '输入 API key（留空 = 不变）';
+      $('set-translate-key').placeholder = t('settings.enterKey');
       $('btn-clear-translate').hidden = true;
     } else {
-      $('llm-key').placeholder = '输入 API key（留空 = 不变）';
+      $('llm-key').placeholder = t('settings.enterKey');
       $('btn-clear-llm').hidden = true;
     }
-    toast('已清除加密存储中的密钥');
+    toast(t('toast.keyCleared'));
   } catch (err) {
-    toast(`清除失败：${err.message}`, true);
+    toast(t('toast.clearFailed', { message: errText(err) }), true);
   }
 }
 
@@ -1235,10 +1364,10 @@ async function saveSettings() {
       body: JSON.stringify(payload),
     });
     $('settings-modal').hidden = true;
-    toast(r.analysisStarted ? '已保存，正在按新配置增量分析…' : '已保存');
+    toast(r.analysisStarted ? t('toast.savedAnalyzing') : t('toast.saved'));
     await refreshData();
   } catch (err) {
-    toast(`保存失败：${err.message}`, true);
+    toast(t('toast.saveFailed', { message: errText(err) }), true);
   } finally {
     $('settings-save').disabled = false;
   }
@@ -1259,31 +1388,43 @@ function renderInfo() {
   const el = $('info-popover');
   const st = S.status;
   if (!st) return;
-  const t = st.state || {};
-  const roots = (S.data?.roots || st.config?.roots || []).map((r) => esc(r.label || r.path)).join('、');
-  const lastAt = t.lastAnalysis ? new Date(t.lastAnalysis.at).toLocaleString('zh-CN') : '从未';
-  const errors = (t.lastAnalysis?.errors || []).map((e) => `<li>${esc(e)}</li>`).join('');
+  const state = st.state || {};
+  const sep = I18N.lang === 'zh' ? '、' : ', ';
+  const roots = (S.data?.roots || st.config?.roots || []).map((r) => esc(r.label || r.path)).join(sep);
+  const locale = I18N.lang === 'zh' ? 'zh-CN' : 'en-US';
+  const lastAt = state.lastAnalysis
+    ? t('info.lastAnalysisValue', {
+        date: new Date(state.lastAnalysis.at).toLocaleString(locale),
+        n: state.lastAnalysis.entities ?? '-',
+      })
+    : t('info.never');
+  const warnList = state.lastAnalysis?.errors || [];
+  const errors = warnList.map((e) => {
+    if (!e || typeof e !== 'object') return `<li>${esc(e)}</li>`;
+    const key = `warning.${e.code}`;
+    return `<li>${esc(hasKey(key) ? t(key, e.params || {}) : (e.message || e.code))}</li>`;
+  }).join('');
   el.innerHTML = `
-    <h3>状态与隐私说明</h3>
+    <h3>${esc(t('info.title'))}</h3>
     <section>
-      <div class="kv" style="align-items: self-start;"><b>隐私提示</b><span>开启翻译后，新翻译的文档原文会发送到外部服务 uapis.cn（AI 翻译接口）；已缓存译文只在本地读取。代码块/命令/路径/环境变量会先摘出、译后回填，不会被翻译改写。</span></div>
-      <div class="kv"><b>翻译同意</b><span>${t.consentTranslate
-        ? '<span class="ok-text">已同意</span> <button class="btn btn-ghost" id="btn-revoke-consent">撤回同意</button>'
-        : '<span class="off-text">未同意（不发新请求）</span> <button class="btn" id="btn-open-consent-info">开启中英对照</button>'}</span></div>
-      <div class="kv"><b>积分消耗</b><span>累计 ${t.creditsUsed || 0} 积分 · ${t.apiCalls || 0} 次调用（每次 4 积分）</span></div>
+      <div class="kv" style="align-items: self-start;"><b>${esc(t('info.privacy'))}</b><span>${esc(t('info.privacyText'))}</span></div>
+      <div class="kv"><b>${esc(t('info.consent'))}</b><span>${state.consentTranslate
+        ? `<span class="ok-text">${esc(t('info.consentYes'))}</span> <button class="btn btn-ghost" id="btn-revoke-consent">${esc(t('info.revoke'))}</button>`
+        : `<span class="off-text">${esc(t('info.consentNo'))}</span> <button class="btn" id="btn-open-consent-info">${esc(t('info.enable'))}</button>`}</span></div>
+      <div class="kv"><b>${esc(t('info.credits'))}</b><span>${esc(t('info.creditsText', { credits: state.creditsUsed || 0, calls: state.apiCalls || 0 }))}</span></div>
     </section>
     <section id="info-keysource">…</section>
     <section>
-      <div class="kv"><b>技能根</b><span>${roots}</span></div>
-      <div class="kv"><b>上次分析</b><span>${lastAt}（${t.lastAnalysis?.entities ?? '-'} 技能）</span></div>
+      <div class="kv"><b>${esc(t('info.roots'))}</b><span>${roots}</span></div>
+      <div class="kv"><b>${esc(t('info.lastAnalysis'))}</b><span>${esc(lastAt)}</span></div>
     </section>
-    ${errors || (t.lastAnalysis?.errors || []).length
-      ? `<section><div class="kv"><b>上次警告</b></div>
-         ${(t.lastAnalysis?.errors || []).length ? `<ul class="warn-list">${errors}</ul>` : '<div class="off-text">无警告</div>'}
-         <button class="btn warn-clear" id="btn-clear-warnings">清除警告</button></section>`
+    ${warnList.length
+      ? `<section><div class="kv"><b>${esc(t('info.warnings'))}</b></div>
+         <ul class="warn-list">${errors}</ul>
+         <button class="btn warn-clear" id="btn-clear-warnings">${esc(t('info.clearWarnings'))}</button></section>`
       : ''}
     <section>
-      <div class="kv"><b>API key</b><span>网页 ⚙ 设置页保存的密钥以 OS 凭据库 + AES-256-GCM 加密落盘；密钥永不回传浏览器明文。</span></div>
+      <div class="kv"><b>${esc(t('info.apiKey'))}</b><span>${esc(t('info.apiKeyText'))}</span></div>
     </section>`;
   const cw = $('btn-clear-warnings');
   if (cw) {
@@ -1293,7 +1434,7 @@ function renderInfo() {
         S.status = await api('/api/status'); // 轮询缓存是旧的,先取最新再重渲染
         renderInfo();
       } catch (err) {
-        toast(`清除失败：${err.message}`, true);
+        toast(t('toast.clearFailed', { message: errText(err) }), true);
       }
     };
   }
@@ -1315,12 +1456,15 @@ function renderInfo() {
   api('/api/settings').then((settings) => {
     const box = $('info-keysource');
     if (!box) return;
-    const src = (s) => (s === 'store' ? '网页设置（加密存储）' : '<span class="off-text">未配置</span>');
-    const kindZh = { dpapi: 'Windows DPAPI + AES-256-GCM', keychain: 'macOS 钥匙串 + AES-256-GCM', 'secret-tool': 'Linux secret-tool + AES-256-GCM', machine: '机器绑定 AES-256-GCM' }[settings.credentialStoreKind] || settings.credentialStoreKind;
+    const src = (s) => (s === 'store'
+      ? esc(t('info.sourceStore'))
+      : `<span class="off-text">${esc(t('info.sourceNone'))}</span>`);
+    const kindKey = `info.credential.${settings.credentialStoreKind}`;
+    const kindLabel = hasKey(kindKey) ? t(kindKey) : settings.credentialStoreKind;
     box.innerHTML = `
-      <div class="kv"><b>翻译密钥</b><span>${src(settings.translate.source)}${settings.translate.maskedKey ? ' · ' + esc(settings.translate.maskedKey) : ''}</span></div>
-      <div class="kv"><b>LLM 密钥</b><span>${src(settings.llm.source)}${settings.llm.maskedKey ? ' · ' + esc(settings.llm.maskedKey) : ''}</span></div>
-      <div class="kv"><b>加密存储</b><span>${esc(kindZh)}</span></div>`;
+      <div class="kv"><b>${esc(t('info.translateKey'))}</b><span>${src(settings.translate.source)}${settings.translate.maskedKey ? ' · ' + esc(settings.translate.maskedKey) : ''}</span></div>
+      <div class="kv"><b>${esc(t('info.llmKey'))}</b><span>${src(settings.llm.source)}${settings.llm.maskedKey ? ' · ' + esc(settings.llm.maskedKey) : ''}</span></div>
+      <div class="kv"><b>${esc(t('info.storage'))}</b><span>${esc(kindLabel)}</span></div>`;
   }).catch(() => {});
 }
 

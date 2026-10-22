@@ -191,9 +191,10 @@ function createFakeUApiPro() {
   let failMode = false;
   let failToken = true; // 含 FAIL_TOKEN 的文本失败,用于失败/重试链路测试
 
-  function fakeTranslate(text) {
+  function fakeTranslate(text, lang) {
+    const prefix = lang === 'en' ? '【EN】' : '【译】';
     const lines = text.split('\n').map((l) =>
-      (l === '' || l.startsWith('⟦S') || l.startsWith('⟦E')) ? l : `【译】${l}`);
+      (l === '' || l.startsWith('⟦S') || l.startsWith('⟦E')) ? l : `${prefix}${l}`);
     // 故意改写未受保护的敏感词,验证占位符保护
     return lines.join('\n').replace(/skill-x/g, '技能X');
   }
@@ -209,6 +210,7 @@ function createFakeUApiPro() {
         firstTs: calls[0]?.ts ?? null,
         lastTs: calls[calls.length - 1]?.ts ?? null,
         texts: calls.map((c) => c.text.slice(0, 120)),
+        langs: calls.map((c) => c.lang),
       }));
     }
     if (req.method === 'POST' && url.pathname === '/__mode') {
@@ -231,16 +233,17 @@ function createFakeUApiPro() {
           res.writeHead(401, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ message: 'missing or invalid bearer' }));
         }
-        if (url.searchParams.get('target_lang') !== 'zh') {
+        const lang = url.searchParams.get('target_lang');
+        if (lang !== 'zh' && lang !== 'en') {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ message: 'target_lang required' }));
+          return res.end(JSON.stringify({ message: 'target_lang required (zh|en)' }));
         }
         const payload = JSON.parse(body);
         if (!payload.text || payload.style !== 'professional' || payload.context !== 'technical') {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ message: 'bad body fields' }));
         }
-        calls.push({ len: payload.text.length, ts: Date.now(), text: payload.text });
+        calls.push({ len: payload.text.length, ts: Date.now(), text: payload.text, lang });
         if (failMode || (failToken && payload.text.includes('FAIL_TOKEN'))) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ message: 'stub translate failure' }));
@@ -248,7 +251,7 @@ function createFakeUApiPro() {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           message: 'Translation completed successfully',
-          data: { translated_text: fakeTranslate(payload.text) },
+          data: { translated_text: fakeTranslate(payload.text, lang) },
           performance: { processing_time_ms: 5 },
         }));
       });
@@ -271,7 +274,9 @@ function createFakeUApiPro() {
       firstTs: calls[0]?.ts ?? null,
       lastTs: calls[calls.length - 1]?.ts ?? null,
       texts: calls.map((c) => c.text.slice(0, 120)),
+      langs: calls.map((c) => c.lang),
       hasText: (sub) => calls.some((c) => c.text.includes(sub)),
+      hasLang: (lang) => calls.some((c) => c.lang === lang),
     }),
     setFail: (f) => { failMode = f; },
     listen: () => new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address().port))),

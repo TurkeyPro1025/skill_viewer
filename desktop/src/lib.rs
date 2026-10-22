@@ -5,12 +5,15 @@ pub mod config;
 pub mod connectivity;
 pub mod credentials;
 pub mod frontmatter;
+pub mod languages;
 pub mod llm;
 pub mod pipeline;
 pub mod providers;
 pub mod scanner;
 pub mod server;
 pub mod stats;
+pub mod summaries;
+pub mod summary_translate;
 pub mod translate_blocks;
 pub mod uapipro;
 pub mod util;
@@ -24,6 +27,28 @@ use std::time::Duration;
 /// 窗口与托盘图标:显式嵌入,不依赖 default_window_icon(程序化建窗时它为 None)
 const WINDOW_ICON_PNG: &[u8] = include_bytes!("../icons/128x128@2x.png");
 const TRAY_ICON_PNG: &[u8] = include_bytes!("../icons/32x32.png");
+
+/// 桌面外壳(托盘/标题)内置文案:与服务端语言设置(public/locales.json 同源词条)对齐
+struct ShellStrings {
+    title: &'static str,
+    show: &'static str,
+    quit: &'static str,
+}
+
+fn shell_strings(lang: &str) -> ShellStrings {
+    match lang {
+        "en" => ShellStrings {
+            title: "Skills Lingo · Bilingual skill viewer",
+            show: "Show Skills Lingo",
+            quit: "Quit",
+        },
+        _ => ShellStrings {
+            title: "Skills 译站 · 中英对照学习",
+            show: "显示 Skills 译站",
+            quit: "退出",
+        },
+    }
+}
 
 /// 构建应用状态(配置 → 缓存目录 → 凭据 → provider → 管线)。
 pub async fn build_app(cfg: config::Config, desktop: bool) -> Arc<App> {
@@ -170,11 +195,11 @@ pub fn run() {
             let port = spawn_server(handle.clone(), app_state.clone(), 0);
             eprintln!("[desktop] http://127.0.0.1:{port}/");
 
-            // 启动即分析(后台,与 server.js 一致)
+            // 启动即分析(后台,与 server.js 一致;目标语言 = 服务端记住的界面语言)
             let state = app_state.clone();
             handle.spawn(async move {
                 let trigger = if has_index { "startup-incremental" } else { "startup" };
-                state.run_analysis(trigger).await;
+                state.run_analysis(trigger, None).await;
             });
 
             // 桌面设置:按已存状态应用开机自启
@@ -182,10 +207,12 @@ pub fn run() {
             apply_autostart(tauri_app.handle(), &app_state.read_desktop_settings());
 
             // 主窗口(指向本地服务)
+            let ui_lang = app_state.ui_language();
+            let shell = shell_strings(&ui_lang);
             let url: tauri::Url = format!("http://127.0.0.1:{port}/").parse().expect("valid url");
             let window_icon = tauri::image::Image::from_bytes(WINDOW_ICON_PNG)?;
             let window = tauri::WebviewWindowBuilder::new(tauri_app, "main", tauri::WebviewUrl::External(url))
-                .title("Skills 译站 · 中英对照学习")
+                .title(shell.title)
                 .icon(window_icon)?
                 .inner_size(1280.0, 860.0)
                 .min_inner_size(920.0, 600.0)
@@ -196,11 +223,11 @@ pub fn run() {
             use tauri::menu::{MenuBuilder, MenuItemBuilder};
             use tauri::tray::{TrayIconBuilder, TrayIconEvent};
             let tray_icon = tauri::image::Image::from_bytes(TRAY_ICON_PNG)?;
-            let show_item = MenuItemBuilder::with_id("show", "显示 Skills 译站").build(tauri_app)?;
-            let quit_item = MenuItemBuilder::with_id("quit", "退出").build(tauri_app)?;
+            let show_item = MenuItemBuilder::with_id("show", shell.show).build(tauri_app)?;
+            let quit_item = MenuItemBuilder::with_id("quit", shell.quit).build(tauri_app)?;
             let menu = MenuBuilder::new(tauri_app).item(&show_item).separator().item(&quit_item).build()?;
             let tray = TrayIconBuilder::with_id("main-tray")
-                .tooltip("Skills 译站 · 中英对照学习")
+                .tooltip(shell.title)
                 .icon(tray_icon)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
@@ -213,6 +240,44 @@ pub fn run() {
                     }
                 }
             });
+
+            // 语言轮询:服务端 uiLanguage 变化时重建托盘菜单与窗口标题(内置 zh/en)
+            {
+                let state = app_state.clone();
+                let window = window.clone();
+                let tray = tray.clone();
+                let app_handle = tauri_app.handle().clone();
+                handle.spawn(async move {
+                    let mut last = state.ui_language();
+                    loop {
+                        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+                        let lang = state.ui_language();
+                        if lang == last {
+                            continue;
+                        }
+                        last = lang.clone();
+                        let shell = shell_strings(&lang);
+                        let _ = window.set_title(shell.title);
+                        let tray2 = tray.clone();
+                        let h = app_handle.clone();
+                        let show = shell.show.to_string();
+                        let quit = shell.quit.to_string();
+                        let tooltip = shell.title.to_string();
+                        let _ = app_handle.run_on_main_thread(move || {
+                            let _ = tray2.set_tooltip(Some(tooltip));
+                            let items = (
+                                MenuItemBuilder::with_id("show", show).build(&h),
+                                MenuItemBuilder::with_id("quit", quit).build(&h),
+                            );
+                            if let (Ok(show_item), Ok(quit_item)) = items {
+                                if let Ok(menu) = MenuBuilder::new(&h).item(&show_item).separator().item(&quit_item).build() {
+                                    let _ = tray2.set_menu(Some(menu));
+                                }
+                            }
+                        });
+                    }
+                });
+            }
 
             let _ = window;
             // runtime 必须活过 setup 闭包:闭返回时局部变量会被 drop,

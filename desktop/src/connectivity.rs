@@ -1,6 +1,7 @@
 //! 连通性探针(与 Node connectivity.js 对齐):
 //! - LLM:GET /models(顺带拿模型列表),404/405 回退 1-token chat;
 //! - 翻译:免费档 = usage 探针 + 空 text 请求(401=key 无效,400=鉴权通过);完整档 = 真实翻译 1 字符。
+//! 结果同时带稳定 code(+params)供前端语言包渲染,error 为未知码时的回退文案。
 
 use serde_json::{json, Value};
 use std::time::Instant;
@@ -11,7 +12,7 @@ const TRANSLATE_TIMEOUT_MS: u64 = 15_000;
 pub async fn test_llm(base_url: &str, api_key: &str, model: &str) -> Value {
     let base = base_url.trim_end_matches('/');
     if base.is_empty() {
-        return json!({ "ok": false, "error": "缺少 API 地址" });
+        return json!({ "ok": false, "code": "missing_base_url", "error": "缺少 API 地址" });
     }
     let t0 = Instant::now();
     let client = reqwest::Client::new();
@@ -52,6 +53,8 @@ pub async fn test_llm(base_url: &str, api_key: &str, model: &str) -> Value {
             if status == 401 || status == 403 {
                 return json!({
                     "ok": false,
+                    "code": "auth_failed",
+                    "params": { "status": status },
                     "latencyMs": t0.elapsed().as_millis() as u64,
                     "error": format!("鉴权失败(HTTP {status}):key 无效或无权限"),
                 });
@@ -59,7 +62,12 @@ pub async fn test_llm(base_url: &str, api_key: &str, model: &str) -> Value {
             // 404/405 → 走 chat 探测
         }
         Err(err) => {
-            return json!({ "ok": false, "error": format!("无法连接:{err}") });
+            return json!({
+                "ok": false,
+                "code": "unreachable",
+                "params": { "message": err.to_string() },
+                "error": format!("无法连接:{err}"),
+            });
         }
     }
 
@@ -84,6 +92,8 @@ pub async fn test_llm(base_url: &str, api_key: &str, model: &str) -> Value {
             } else if status == 401 || status == 403 {
                 json!({
                     "ok": false,
+                    "code": "auth_failed",
+                    "params": { "status": status },
                     "latencyMs": t0.elapsed().as_millis() as u64,
                     "error": format!("鉴权失败(HTTP {status}):key 无效或无权限"),
                 })
@@ -92,12 +102,19 @@ pub async fn test_llm(base_url: &str, api_key: &str, model: &str) -> Value {
                 let detail: String = detail.chars().take(200).collect();
                 json!({
                     "ok": false,
+                    "code": "http_error",
+                    "params": { "status": status, "detail": detail },
                     "latencyMs": t0.elapsed().as_millis() as u64,
                     "error": format!("服务返回 HTTP {status}:{detail}"),
                 })
             }
         }
-        Err(err) => json!({ "ok": false, "error": format!("无法连接:{err}") }),
+        Err(err) => json!({
+            "ok": false,
+            "code": "unreachable",
+            "params": { "message": err.to_string() },
+            "error": format!("无法连接:{err}"),
+        }),
     }
 }
 
@@ -105,6 +122,7 @@ pub async fn test_translate(
     endpoint: &str,
     api_key: &str,
     full: bool,
+    lang: &str,
     style: &str,
     context: &str,
 ) -> Value {
@@ -115,6 +133,8 @@ pub async fn test_translate(
     }) {
         Some(o) if endpoint.starts_with("http") => o,
         _ => {
+            out["code"] = json!("bad_endpoint");
+            out["params"] = json!({ "endpoint": endpoint });
             out["error"] = json!(format!("endpoint 配置不合法: {endpoint}"));
             return out;
         }
@@ -132,20 +152,24 @@ pub async fn test_translate(
             out["reachable"] = json!(r.status().is_success());
         }
         Err(err) => {
+            out["code"] = json!("unreachable");
+            out["params"] = json!({ "message": err.to_string() });
             out["error"] = json!(format!("服务不可达:{err}"));
             return out;
         }
     }
     if out["reachable"] != json!(true) {
+        out["code"] = json!("probe_failed");
         out["error"] = json!("服务可达性探针未通过");
         return out;
     }
     if api_key.is_empty() {
+        out["code"] = json!("no_key");
         out["error"] = json!("未提供 API key");
         return out;
     }
 
-    let url = format!("{endpoint}?target_lang=zh");
+    let url = format!("{endpoint}?target_lang={lang}");
 
     if full {
         // 真实翻译 1 字符:确定但计费
@@ -171,22 +195,43 @@ pub async fn test_translate(
                     out["keyAccepted"] = json!(true);
                 } else if status == 401 || status == 403 {
                     out["keyAccepted"] = json!(false);
-                    out["full"] = json!({ "ok": false, "error": format!("key 无效(HTTP {status})") });
+                    out["code"] = json!("auth_failed");
+                    out["params"] = json!({ "status": status });
+                    out["full"] = json!({
+                        "ok": false,
+                        "code": "auth_failed",
+                        "params": { "status": status },
+                        "error": format!("key 无效(HTTP {status})"),
+                    });
                 } else {
                     let detail = res.text().await.unwrap_or_default();
                     let detail: String = detail.chars().take(200).collect();
-                    out["full"] = json!({ "ok": false, "error": format!("HTTP {status}:{detail}") });
+                    out["code"] = json!("http_error");
+                    out["params"] = json!({ "status": status, "detail": detail });
+                    out["full"] = json!({
+                        "ok": false,
+                        "code": "http_error",
+                        "params": { "status": status, "detail": detail },
+                        "error": format!("HTTP {status}:{detail}"),
+                    });
                     out["keyAccepted"] = json!(status != 401);
                 }
             }
             Err(err) => {
-                out["full"] = json!({ "ok": false, "error": err.to_string() });
+                out["code"] = json!("request_failed");
+                out["params"] = json!({ "message": err.to_string() });
+                out["full"] = json!({
+                    "ok": false,
+                    "code": "request_failed",
+                    "params": { "message": err.to_string() },
+                    "error": err.to_string(),
+                });
             }
         }
         return out;
     }
 
-    // 免费档:空 text 请求。401=key 无效,400=已过鉴权
+    // 免费档:空 text 请求。鉴权通常先于参数校验 → 401=key 无效,400=已过鉴权
     match client
         .post(&url)
         .header("Content-Type", "application/json")
@@ -198,9 +243,17 @@ pub async fn test_translate(
     {
         Ok(res) => {
             let status = res.status().as_u16();
-            out["keyAccepted"] = json!(status != 401 && status != 403);
+            if status == 401 || status == 403 {
+                out["keyAccepted"] = json!(false);
+                out["code"] = json!("auth_failed");
+                out["params"] = json!({ "status": status });
+            } else {
+                out["keyAccepted"] = json!(true);
+            }
         }
         Err(err) => {
+            out["code"] = json!("request_failed");
+            out["params"] = json!({ "message": err.to_string() });
             out["error"] = json!(format!("探测请求失败:{err}"));
         }
     }

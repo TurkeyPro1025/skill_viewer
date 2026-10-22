@@ -7,13 +7,20 @@
   <link rel="icon" type="image/png" href="/logo.png">
   <link rel="stylesheet" href="/style.css">
   <script>
-    /* 首帧前应用外观:主题固定浅色,密度按已存偏好,避免闪烁 */
+    /* 首帧前应用外观与语言:主题固定浅色,密度按已存偏好;lang 属性跟随语言偏好(读屏正确朗读) */
     (function () {
       document.documentElement.dataset.theme = 'light';
       try {
         var a = JSON.parse(localStorage.getItem('skills-lingo:appearance') || '{}');
         if (a.density === 'compact') document.documentElement.dataset.density = a.density;
       } catch (e) { /* 忽略损坏的本地存储 */ }
+      try {
+        var saved = localStorage.getItem('skills-lingo:language');
+        var lang = (saved === 'zh' || saved === 'en')
+          ? saved
+          : ((navigator.language || '').toLowerCase().indexOf('zh') === 0 ? 'zh' : 'en');
+        document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
+      } catch (e) { /* 忽略 */ }
     })();
   </script>
 </head>
@@ -24,18 +31,17 @@
         <span class="brand-mark" aria-hidden="true">
           <img src="/logo.png" alt="" width="34" height="34">
         </span>
-        <span class="brand-name">Skills 译站</span>
+        <span class="brand-name" data-i18n="app.brand">Skills 译站</span>
       </div>
       <div class="topbar-actions">
-        <input id="search" class="search" type="search" placeholder="搜索名称 / 描述 / 分类 / 仓库…  Ctrl+K" autocomplete="off">
-        <button id="btn-update" class="btn" title="重新扫描与分析（增量，内容未变不调 API；此时才会批量预翻译入口文档）"><span class="ic">⟳</span>手动更新</button>
-        <button id="btn-organize" class="btn btn-ghost" title="多选技能，手动归入仓库或确认推断"><span class="ic">☰</span><span id="organize-label">整理归属</span></button>
-        <button id="btn-settings" class="btn btn-ghost" title="配置翻译 / LLM（API key 加密存储）">⚙ 设置</button>
-        <button id="btn-info" class="btn btn-ghost" title="隐私说明 / provider 状态 / 积分">ⓘ</button>
-        <div class="density-toggle" role="radiogroup" aria-label="显示密度" title="显示密度">
-          <span class="density-toggle-label">显示密度</span>
-          <label class="density-opt"><input type="radio" name="density" value="comfortable">舒适</label>
-          <label class="density-opt"><input type="radio" name="density" value="compact">紧凑</label>
+        <input id="search" class="search" type="search" placeholder="搜索名称 / 描述 / 分类 / 仓库…  Ctrl+K" data-i18n-placeholder="topbar.searchPlaceholder" autocomplete="off">
+        <button id="btn-update" class="btn" title="重新扫描与分析（增量，内容未变不调 API；此时才会批量预翻译入口文档）" data-i18n-title="topbar.updateTitle"><span class="ic">⟳</span><span data-i18n="topbar.update">手动更新</span></button>
+        <button id="btn-organize" class="btn btn-ghost" title="多选技能，手动归入仓库或确认推断" data-i18n-title="topbar.organizeTitle"><span class="ic">☰</span><span id="organize-label" data-i18n="topbar.organize">整理归属</span></button>
+        <button id="btn-settings" class="btn btn-ghost" title="配置翻译 / LLM（API key 加密存储）" data-i18n-title="topbar.settingsTitle"><span class="ic">⚙</span><span data-i18n="topbar.settings">设置</span></button>
+        <button id="btn-info" class="btn btn-ghost" title="隐私说明 / provider 状态 / 积分" data-i18n-title="topbar.infoTitle">ⓘ</button>
+        <div class="language-picker">
+          <span class="language-picker-label" data-i18n="topbar.language">语言</span>
+          <select id="topbar-language" aria-label="界面语言" data-i18n-aria-label="topbar.languageAria" title="界面语言（同时决定译文目标语言）" data-i18n-title="topbar.languageTitle"></select>
         </div>
       </div>
       <div id="progress-wrap" class="progress-wrap" hidden>
@@ -45,19 +51,19 @@
       <div id="selection-bar" class="selection-bar" hidden>
         <span id="selection-count"></span>
         <select id="repo-select"></select>
-        <button id="btn-assign" class="btn btn-primary">归入选中仓库</button>
-        <button id="btn-unknown" class="btn">移入未知来源</button>
-        <button id="btn-confirm" class="btn">确认推断</button>
-        <button id="btn-cancel-select" class="btn btn-ghost">取消</button>
+        <button id="btn-assign" class="btn btn-primary" data-i18n="selection.assign">归入选中仓库</button>
+        <button id="btn-unknown" class="btn" data-i18n="selection.unknown">移入未知来源</button>
+        <button id="btn-confirm" class="btn" data-i18n="selection.confirm">确认推断</button>
+        <button id="btn-cancel-select" class="btn btn-ghost" data-i18n="selection.cancel">取消</button>
       </div>
     </header>
 
     <div id="stats-bar" class="stats-bar" hidden>
-      <span class="stat"><b id="st-skills">–</b><i>技能</i></span>
-      <span class="stat"><b id="st-repos">–</b><i>仓库</i></span>
-      <span class="stat"><b id="st-attr">–</b><i>已归属</i></span>
-      <button class="stat stat-link" id="st-infer" type="button" hidden><b>–</b><i>待确认推断</i></button>
-      <span class="stat stat-match" id="st-match" hidden><b id="st-match-n">–</b><i id="st-match-label">匹配</i></span>
+      <span class="stat"><b id="st-skills">–</b><i data-i18n="stats.skills">技能</i></span>
+      <span class="stat"><b id="st-repos">–</b><i data-i18n="stats.repos">仓库</i></span>
+      <span class="stat"><b id="st-attr">–</b><i data-i18n="stats.attributed">已归属</i></span>
+      <button class="stat stat-link" id="st-infer" type="button" hidden><b>–</b><i data-i18n="stats.infer">待确认推断</i></button>
+      <span class="stat stat-match" id="st-match" hidden><b id="st-match-n">–</b><i id="st-match-label" data-i18n="stats.match">匹配</i></span>
       <span class="stat-error" id="stats-line" hidden></span>
     </div>
 
@@ -69,7 +75,7 @@
       <section id="groups"></section>
       <section id="empty-state" class="empty" hidden>
         <div class="empty-icon">🔍</div>
-        <p>没有匹配的技能</p>
+        <p data-i18n="empty.title">没有匹配的技能</p>
         <p class="empty-hint" id="empty-hint"></p>
       </section>
     </main>
@@ -78,7 +84,7 @@
   <!-- 文档查看器 -->
   <div id="viewer" class="viewer" hidden>
     <div class="viewer-top">
-      <button id="viewer-close" class="btn btn-ghost">← 返回</button>
+      <button id="viewer-close" class="btn btn-ghost" data-i18n="viewer.back">← 返回</button>
       <div class="viewer-title">
         <strong id="viewer-skill"></strong>
         <span id="viewer-path" class="viewer-path"></span>
@@ -94,17 +100,18 @@
   <!-- 隐私同意弹窗 -->
   <div id="consent-modal" class="modal" hidden>
     <div class="modal-card">
-      <h2>翻译前请确认</h2>
-      <p>开启中英对照阅读需要把<strong>文档原文内容</strong>发送到外部翻译服务（uapis.cn AI 翻译接口）。</p>
+      <h2 data-i18n="consent.title">翻译前请确认</h2>
+      <p><span data-i18n="consent.body1">开启中英对照阅读需要把</span><strong data-i18n="consent.bodyStrong">文档原文内容</strong><span data-i18n="consent.body2">发送到外部翻译服务（uapis.cn AI 翻译接口）。</span></p>
       <ul>
-        <li>上传内容仅限你所浏览的技能文档正文；</li>
-        <li>该服务按次计积分（当前 4 积分/次），内容未变的文档会被缓存、不会重复调用；</li>
-        <li>代码块、命令、路径、环境变量会先摘出再翻译，不会被改写；</li>
-        <li>可随时在右上角 ⓘ 中查看本提示、撤回同意或重新开启。</li>
+        <li data-i18n="consent.li1">上传内容仅限你所浏览的技能文档正文；</li>
+        <li data-i18n="consent.li2">该服务按次计积分（当前 4 积分/次），内容未变的文档会被缓存、不会重复调用；</li>
+        <li data-i18n="consent.li3">代码块、命令、路径、环境变量会先摘出再翻译，不会被改写；</li>
+        <li data-i18n="consent.li5">切换语言后，技能概述、分类标签与仓库简介也会按目标语言翻译并缓存；</li>
+        <li data-i18n="consent.li4">可随时在右上角 ⓘ 中查看本提示、撤回同意或重新开启。</li>
       </ul>
       <div class="modal-actions">
-        <button id="consent-accept" class="btn btn-primary">同意并翻译</button>
-        <button id="consent-cancel" class="btn">暂不翻译</button>
+        <button id="consent-accept" class="btn btn-primary" data-i18n="consent.accept">同意并翻译</button>
+        <button id="consent-cancel" class="btn" data-i18n="consent.cancel">暂不翻译</button>
       </div>
     </div>
   </div>
@@ -112,11 +119,11 @@
   <!-- 撤回翻译同意确认弹窗(与隐私同意弹窗同款样式) -->
   <div id="revoke-modal" class="modal" hidden>
     <div class="modal-card">
-      <h2>撤回翻译同意？</h2>
-      <p>撤回后将不再发起新的翻译请求；本地已缓存的译文仍可查看，随时可在右上角 ⓘ 重新开启。</p>
+      <h2 data-i18n="revoke.title">撤回翻译同意？</h2>
+      <p data-i18n="revoke.body">撤回后将不再发起新的翻译请求；本地已缓存的译文仍可查看，随时可在右上角 ⓘ 重新开启。</p>
       <div class="modal-actions">
-        <button id="revoke-confirm" class="btn btn-primary">确认撤回</button>
-        <button id="revoke-cancel" class="btn">保留同意</button>
+        <button id="revoke-confirm" class="btn btn-primary" data-i18n="revoke.confirm">确认撤回</button>
+        <button id="revoke-cancel" class="btn" data-i18n="revoke.cancel">保留同意</button>
       </div>
     </div>
   </div>
@@ -124,81 +131,93 @@
   <!-- 移入未知来源确认弹窗(与隐私同意弹窗同款样式) -->
   <div id="unknown-modal" class="modal" hidden>
     <div class="modal-card">
-      <h2>移入「未知来源」？</h2>
-      <p>将把选中的 <strong id="unknown-count">0</strong> 个技能的仓库归属清除为未知来源；归属错误也随时可在「整理归属」中重新归组。</p>
+      <h2 data-i18n="unknown.title">移入「未知来源」？</h2>
+      <p><span data-i18n="unknown.before">将把选中的</span> <strong id="unknown-count">0</strong> <span data-i18n="unknown.after">个技能的仓库归属清除为未知来源；归属错误也随时可在「整理归属」中重新归组。</span></p>
       <div class="modal-actions">
-        <button id="unknown-confirm" class="btn btn-primary">确认移入</button>
-        <button id="unknown-cancel" class="btn">取消</button>
+        <button id="unknown-confirm" class="btn btn-primary" data-i18n="unknown.confirm">确认移入</button>
+        <button id="unknown-cancel" class="btn" data-i18n="unknown.cancel">取消</button>
       </div>
     </div>
   </div>
 
-  <!-- 设置弹窗(API key 加密存储 + LLM 预设 + 连通测试) -->
+  <!-- 设置弹窗(语言 + API key 加密存储 + LLM 预设 + 连通测试) -->
   <div id="settings-modal" class="modal" hidden>
     <div class="modal-card settings-card">
-      <h2>⚙ 设置</h2>
-      <p class="settings-note">API key 保存后以 <strong>OS 凭据库 + AES-256-GCM</strong> 加密落盘，绝不以明文出现；密钥永不回传浏览器明文。</p>
+      <h2><span class="ic">⚙</span><span data-i18n="settings.title">设置</span></h2>
+      <p class="settings-note"><span data-i18n="settings.note1">API key 保存后以</span> <strong data-i18n="settings.noteStrong">OS 凭据库 + AES-256-GCM</strong> <span data-i18n="settings.note2">加密落盘，绝不以明文出现；密钥永不回传浏览器明文。</span></p>
 
       <section class="settings-section">
-        <h3>翻译服务（UApiPro · 中英对照）</h3>
-        <p class="section-hint">还没有账号？到 <a href="https://uapis.cn/console" target="_blank" rel="noreferrer">UApiPro 控制台 ↗</a> 注册并获取 API key(新用户有免费额度，<a href="https://uapis.cn/pricing" target="_blank" rel="noreferrer">定价说明 ↗</a>)。</p>
+        <h3 data-i18n="settings.displaySection">显示</h3>
         <div class="field-row">
-          <label for="set-translate-key">API key</label>
-          <input id="set-translate-key" type="password" autocomplete="off" placeholder="未配置">
-          <button id="btn-clear-translate" class="link-btn" hidden>清除已存</button>
+          <label data-i18n="settings.densityLabel">显示密度</label>
+          <div class="density-toggle" role="radiogroup" aria-label="显示密度" data-i18n-aria-label="density.aria">
+            <label class="density-opt"><input type="radio" name="density" value="comfortable"><span data-i18n="density.comfortable">舒适</span></label>
+            <label class="density-opt"><input type="radio" name="density" value="compact"><span data-i18n="density.compact">紧凑</span></label>
+          </div>
+        </div>
+        <p class="section-hint" data-i18n="settings.densityHint">紧凑模式让卡片更密集，一屏看到更多技能。</p>
+      </section>
+
+      <section class="settings-section">
+        <h3 data-i18n="settings.translateSection">翻译服务（UApiPro · 中英对照）</h3>
+        <p class="section-hint"><span data-i18n="settings.translateHint1">还没有账号？到</span> <a href="https://uapis.cn/console" target="_blank" rel="noreferrer" data-i18n="settings.translateConsole">UApiPro 控制台 ↗</a> <span data-i18n="settings.translateHint2">注册并获取 API key（新用户有免费额度，</span><a href="https://uapis.cn/pricing" target="_blank" rel="noreferrer" data-i18n="settings.translatePricing">定价说明 ↗</a><span data-i18n="settings.translateHint3">）。</span></p>
+        <div class="field-row">
+          <label for="set-translate-key" data-i18n="settings.apiKey">API key</label>
+          <input id="set-translate-key" type="password" autocomplete="off" placeholder="未配置" data-i18n-placeholder="settings.notConfigured">
+          <button id="btn-clear-translate" class="link-btn" hidden data-i18n="settings.clearStored">清除已存</button>
         </div>
         <div class="field-actions">
-          <button id="btn-test-translate" class="btn">测试连通（免费）</button>
-          <button id="btn-test-translate-full" class="btn" title="发送 1 字符真实翻译，结果 100% 确定">完整测试（消耗 4 积分）</button>
+          <button id="btn-test-translate" class="btn" data-i18n="settings.testFree">测试连通（免费）</button>
+          <button id="btn-test-translate-full" class="btn" title="发送 1 字符真实翻译，结果 100% 确定" data-i18n-title="settings.testFullTitle" data-i18n="settings.testFull">完整测试（消耗 4 积分）</button>
         </div>
         <div id="test-translate-status" class="status-line"></div>
       </section>
 
       <section class="settings-section">
-        <h3>LLM 服务（中文概述 + 归属推断）</h3>
-        <p class="section-hint">没有 key？在所选服务商官网注册（DeepSeek / 智谱开放平台），粘贴到下方即可。</p>
+        <h3 data-i18n="settings.llmSection">LLM 服务（中文概述 + 归属推断）</h3>
+        <p class="section-hint" data-i18n="settings.llmHint">没有 key？在所选服务商官网注册（DeepSeek / 智谱开放平台），粘贴到下方即可。</p>
         <div class="field-row">
-          <label for="llm-preset">预设</label>
+          <label for="llm-preset" data-i18n="settings.preset">预设</label>
           <select id="llm-preset"></select>
         </div>
         <div class="field-row">
-          <label for="llm-baseurl">API 地址</label>
-          <input id="llm-baseurl" type="text" placeholder="https://…/v1（选预设自动填充，可修改）">
+          <label for="llm-baseurl" data-i18n="settings.baseUrl">API 地址</label>
+          <input id="llm-baseurl" type="text" placeholder="https://…/v1（选预设自动填充，可修改）" data-i18n-placeholder="settings.baseUrlPlaceholder">
         </div>
         <div class="field-row">
-          <label for="llm-key">API key</label>
-          <input id="llm-key" type="password" autocomplete="off" placeholder="未配置">
-          <button id="btn-clear-llm" class="link-btn" hidden>清除已存</button>
+          <label for="llm-key" data-i18n="settings.apiKey">API key</label>
+          <input id="llm-key" type="password" autocomplete="off" placeholder="未配置" data-i18n-placeholder="settings.notConfigured">
+          <button id="btn-clear-llm" class="link-btn" hidden data-i18n="settings.clearStored">清除已存</button>
         </div>
         <div class="field-actions">
-          <button id="btn-test-llm" class="btn">测试连通</button>
+          <button id="btn-test-llm" class="btn" data-i18n="settings.testFree">测试连通（免费）</button>
         </div>
         <div id="test-llm-status" class="status-line"></div>
         <div class="field-row model-picker-row">
-          <label for="llm-model-search">模型</label>
+          <label for="llm-model-search" data-i18n="settings.model">模型</label>
           <div class="model-picker" id="llm-model-picker">
-            <input id="llm-model-search" type="text" autocomplete="off" spellcheck="false" placeholder="无可用模型：先「测试连通」拉取，或输入关键字筛选">
+            <input id="llm-model-search" type="text" autocomplete="off" spellcheck="false" placeholder="无可用模型：先「测试连通」拉取，或输入关键字筛选" data-i18n-placeholder="settings.modelSearchPlaceholder">
             <div class="model-picker-list" hidden></div>
           </div>
         </div>
       </section>
 
       <section class="settings-section" id="desktop-section" hidden>
-        <h3>桌面</h3>
+        <h3 data-i18n="settings.desktopSection">桌面</h3>
         <div class="field-row">
-          <label for="set-autostart">开机自启</label>
+          <label for="set-autostart" data-i18n="settings.autostart">开机自启</label>
           <input type="checkbox" id="set-autostart">
         </div>
         <div class="field-row">
-          <label for="set-close-exit">关闭即退出</label>
+          <label for="set-close-exit" data-i18n="settings.closeExit">关闭即退出</label>
           <input type="checkbox" id="set-close-exit">
         </div>
-        <p class="status-line">默认关闭 = 点关闭按钮时最小化到托盘，右键托盘图标可显示或退出。</p>
+        <p class="status-line" data-i18n="settings.desktopHint">默认关闭 = 点关闭按钮时最小化到托盘，右键托盘图标可显示或退出。</p>
       </section>
 
       <div class="modal-actions">
-        <button id="settings-save" class="btn btn-primary">保存并重新分析</button>
-        <button id="settings-close" class="btn">关闭</button>
+        <button id="settings-save" class="btn btn-primary" data-i18n="settings.save">保存并重新分析</button>
+        <button id="settings-close" class="btn" data-i18n="settings.close">关闭</button>
       </div>
     </div>
   </div>

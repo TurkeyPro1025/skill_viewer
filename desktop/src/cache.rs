@@ -1,7 +1,8 @@
-//! JSON 缓存层(与 Node cache.js 布局兼容):索引 / 每技能一文件 / 译文 / overrides / 状态。
+//! JSON 缓存层(与 Node cache.js 布局兼容):索引 / 每技能每语言一文件 / 译文 / overrides / 状态。
 //! 密钥绝不写入任何缓存文件。
 
 use crate::util::{read_json_if_exists, write_json_atomic};
+use serde_json::{json, Map, Value};
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -33,11 +34,66 @@ impl Cache {
         let _ = write_json_atomic(&self.root.join("index.json"), index);
     }
 
-    pub fn read_skill(&self, id: &str) -> Option<serde_json::Value> {
-        read_json_if_exists(&self.skills_dir.join(format!("{id}.json")))
+    // ---- 每技能每语言一文件(概述/分类,记录内容哈希做增量) ----
+    // v1 布局 skills/{id}.json 是中文概述;读取中文时懒迁移到 skills/{id}/zh.json,
+    // 英文等其它语言只读自己的语言段,不会误用中文概述。
+    fn skill_file(&self, id: &str, lang: &str) -> PathBuf {
+        self.skills_dir.join(id).join(format!("{lang}.json"))
     }
-    pub fn write_skill(&self, id: &str, data: &serde_json::Value) {
-        let _ = write_json_atomic(&self.skills_dir.join(format!("{id}.json")), data);
+
+    fn legacy_skill_file(&self, id: &str) -> PathBuf {
+        self.skills_dir.join(format!("{id}.json"))
+    }
+
+    pub fn read_skill(&self, id: &str, lang: &str) -> Option<Value> {
+        if let Some(hit) = read_json_if_exists(&self.skill_file(id, lang)) {
+            return Some(hit);
+        }
+        if lang != "zh" {
+            return None;
+        }
+        let legacy = read_json_if_exists(&self.legacy_skill_file(id))?;
+        let _ = write_json_atomic(&self.skill_file(id, "zh"), &legacy);
+        Some(legacy)
+    }
+
+    pub fn write_skill(&self, id: &str, lang: &str, data: &Value) {
+        let _ = write_json_atomic(&self.skill_file(id, lang), data);
+    }
+
+    // ---- 语言相关的元数据翻译缓存:仓库简介 / 分类标签(按源文本哈希失效) ----
+    fn repo_summaries_file(&self, lang: &str) -> PathBuf {
+        self.root.join("summaries").join("repos").join(format!("{lang}.json"))
+    }
+
+    pub fn read_repo_summaries(&self, lang: &str) -> Value {
+        read_json_if_exists(&self.repo_summaries_file(lang))
+            .filter(|v| v.get("entries").map(|e| e.is_object()).unwrap_or(false))
+            .unwrap_or_else(|| json!({ "version": 1, "lang": lang, "entries": {} }))
+    }
+
+    pub fn write_repo_summaries(&self, lang: &str, data: &Value) {
+        let out = json!({
+            "version": 1,
+            "lang": lang,
+            "entries": data.get("entries").cloned().unwrap_or(json!({})),
+        });
+        let _ = write_json_atomic(&self.repo_summaries_file(lang), &out);
+    }
+
+    fn label_map_file(&self, lang: &str) -> PathBuf {
+        self.root.join("summaries").join("labels").join(format!("{lang}.json"))
+    }
+
+    pub fn read_label_map(&self, lang: &str) -> Map<String, Value> {
+        read_json_if_exists(&self.label_map_file(lang))
+            .and_then(|v| v.get("labels").and_then(|l| l.as_object()).cloned())
+            .unwrap_or_default()
+    }
+
+    pub fn write_label_map(&self, lang: &str, labels: &Map<String, Value>) {
+        let out = json!({ "version": 1, "lang": lang, "labels": labels });
+        let _ = write_json_atomic(&self.label_map_file(lang), &out);
     }
 
     pub fn read_overrides(&self) -> serde_json::Value {

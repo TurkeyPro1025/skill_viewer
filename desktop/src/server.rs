@@ -2,6 +2,8 @@
 //! 跨源/DNS-rebinding 防护:非 GET 请求必须来自本机同源。
 
 use crate::app::App;
+use crate::languages::normalize_lang;
+use crate::summaries::{fallback_summary, resolve_repo_summary, resolve_stored_summary, EntityRef, SUMMARY_META_VERSION};
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, Query, Request};
 use axum::http::{header, HeaderMap, StatusCode};
@@ -19,6 +21,7 @@ pub fn router(app: Arc<App>) -> Router {
         .route("/", get(index_route))
         .route("/style.css", get(css_route))
         .route("/app.js", get(js_route))
+        .route("/locales.json", get(locales_route))
         .route("/logo.png", get(logo_route))
         // 清理版图标文件本体;前端实际渲染用的是 app.js 内联常量(ICO_DUMP_TO/ICO_LINK,
         // 可继承 currentColor),这两条路由仅对外提供文件,无前端消费方
@@ -38,6 +41,7 @@ pub fn router(app: Arc<App>) -> Router {
         .route("/api/overrides", post(overrides))
         .route("/api/confirm-inference", post(confirm_inference))
         .route("/api/settings", get(settings))
+        .route("/api/settings/language", post(settings_language))
         .route("/api/settings/providers", post(settings_providers))
         .route("/api/settings/test/llm", post(settings_test_llm))
         .route("/api/settings/test/translate", post(settings_test_translate))
@@ -66,6 +70,9 @@ async fn css_route() -> Response {
 async fn js_route() -> Response {
     asset("app.js", "application/javascript; charset=utf-8")
 }
+async fn locales_route() -> Response {
+    asset("locales.json", "application/json; charset=utf-8")
+}
 async fn logo_route() -> Response {
     asset("logo.png", "image/png")
 }
@@ -83,6 +90,7 @@ fn asset(name: &str, mime: &str) -> Response {
         "index.html" => include_bytes!("../../public/index.html"),
         "style.css" => include_bytes!("../../public/style.css"),
         "app.js" => include_bytes!("../../public/app.js"),
+        "locales.json" => include_bytes!("../../public/locales.json"),
         "logo.png" => include_bytes!("../../public/logo.png"),
         "dump_to.svg" => include_bytes!("../../public/dump_to.svg"),
         "link.svg" => include_bytes!("../../public/link.svg"),
@@ -111,7 +119,7 @@ async fn log_requests(req: Request, next: Next) -> Response {
 
 async fn origin_guard(app: Arc<App>, req: Request, next: Next) -> Response {
     if req.method() != axum::http::Method::GET && !is_authorized_local(&app, req.headers()) {
-        return err_json("forbidden_origin", "拒绝跨源状态变更请求", StatusCode::FORBIDDEN);
+        return err_json("forbidden_origin", "拒绝跨源状态变更请求", None, StatusCode::FORBIDDEN);
     }
     next.run(req).await
 }
@@ -147,12 +155,16 @@ fn is_authorized_local(app: &App, headers: &HeaderMap) -> bool {
 
 /* ---------- 通用 ---------- */
 
-fn err_json(code: &str, message: &str, status: StatusCode) -> Response {
-    (status, Json(json!({ "error": { "code": code, "message": message } }))).into_response()
+fn err_json(code: &str, message: &str, params: Option<Value>, status: StatusCode) -> Response {
+    let mut error = json!({ "code": code, "message": message });
+    if let Some(p) = params {
+        error["params"] = p;
+    }
+    (status, Json(json!({ "error": error }))).into_response()
 }
 
 fn not_found() -> Response {
-    err_json("not_found", "资源不存在", StatusCode::NOT_FOUND)
+    err_json("not_found", "资源不存在", None, StatusCode::NOT_FOUND)
 }
 
 fn pipeline_err(e: crate::pipeline::PipelineError) -> Response {
@@ -163,7 +175,7 @@ fn pipeline_err(e: crate::pipeline::PipelineError) -> Response {
         "bad_request" => StatusCode::BAD_REQUEST,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     };
-    err_json(e.code, &e.message, status)
+    err_json(e.code, &e.message, e.params, status)
 }
 
 fn parse_body(bytes: &Bytes) -> Value {
@@ -182,6 +194,24 @@ fn current_entity(app: &App, id: &str) -> Option<Value> {
         .cloned()
 }
 
+/** 请求语言:?lang= 优先,否则服务端记住的界面语言(默认中文) */
+fn request_lang(app: &App, query: Option<&HashMap<String, String>>) -> String {
+    let from_query = query.and_then(|q| q.get("lang").map(|s| s.as_str()));
+    if from_query.is_some() {
+        return normalize_lang(from_query);
+    }
+    app.ui_language()
+}
+
+/** POST 请求语言:body.lang 优先,否则服务端记住的界面语言 */
+fn body_lang(app: &App, payload: &Value) -> String {
+    let from_body = payload.get("lang").and_then(|v| v.as_str());
+    if from_body.is_some() {
+        return normalize_lang(from_body);
+    }
+    app.ui_language()
+}
+
 /* ---------- GET 端点 ---------- */
 
 async fn status(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Response {
@@ -189,6 +219,7 @@ async fn status(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Re
     let mut state = app.cache.read_state();
     let translate_configured = app.translate_configured().await;
     let llm_configured = app.llm_configured().await;
+    let ui_language = app.ui_language();
     if let Some(obj) = state.as_object_mut() {
         obj.insert("translateConfigured".into(), json!(translate_configured));
         obj.insert("llmConfigured".into(), json!(llm_configured));
@@ -206,6 +237,7 @@ async fn status(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Re
         "state": state,
         "config": {
             "roots": roots,
+            "language": ui_language,
             "desktop": app.desktop,
             "providers": {
                 "translate": { "name": app.config.translate.name, "configured": translate_configured },
@@ -216,7 +248,16 @@ async fn status(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Re
     .into_response()
 }
 
-fn card_of(e: &Value, pending: &Map<String, Value>) -> Value {
+fn entity_ref_of(e: &Value) -> EntityRef<'_> {
+    EntityRef {
+        id: e.get("id").and_then(|v| v.as_str()).unwrap_or_default(),
+        dir_name: e.get("dirName").and_then(|v| v.as_str()).unwrap_or_default(),
+        description: e.get("description").and_then(|v| v.as_str()).unwrap_or_default(),
+        content_hash: e.get("contentHash").and_then(|v| v.as_str()).unwrap_or_default(),
+    }
+}
+
+fn card_of(app: &App, e: &Value, pending: &Map<String, Value>, lang: &str) -> Value {
     let mut roots_dedup: Vec<Value> = Vec::new();
     let mut seen_labels: Vec<String> = Vec::new();
     if let Some(arr) = e.get("appearances").and_then(|v| v.as_array()) {
@@ -263,15 +304,20 @@ fn card_of(e: &Value, pending: &Map<String, Value>) -> Value {
         }),
         _ => Value::Null,
     };
+    // 概述按请求语言解析:非中文界面 = 语言缓存(未命中回退 frontmatter 描述)
+    let er = entity_ref_of(e);
+    let repo = attribution.and_then(|a| a.get("repo")).and_then(|x| x.as_str());
+    let resolved = resolve_stored_summary(&er, repo, lang, &app.seeds, &app.cache)
+        .unwrap_or_else(|| fallback_summary(&er, lang));
     json!({
         "id": e.get("id").cloned().unwrap_or(Value::Null),
         "dirName": dir_name,
         "name": e.get("name").cloned().unwrap_or(Value::Null),
         "displayName": display_name,
         "description": e.get("description").cloned().unwrap_or(Value::Null),
-        "summary": e.get("summary").cloned().unwrap_or(Value::Null),
-        "summarySource": e.get("summarySource").cloned().unwrap_or(Value::Null),
-        "categories": e.get("categories").cloned().unwrap_or(json!([])),
+        "summary": resolved.summary,
+        "summarySource": resolved.summary_source,
+        "categories": resolved.categories,
         "roots": roots_dedup,
         "copyCount": 1 + copies_len,
         "forked": forked,
@@ -283,7 +329,7 @@ fn card_of(e: &Value, pending: &Map<String, Value>) -> Value {
     })
 }
 
-fn grouped_skills(idx: &Value, seeds: &Value) -> Vec<Value> {
+fn grouped_skills(app: &App, idx: &Value, lang: &str) -> Vec<Value> {
     let pending = last_inference_map(Some(idx));
     let mut group_order: Vec<String> = Vec::new();
     let mut groups: HashMap<String, (u64, Option<String>, Vec<(Option<String>, Vec<Value>)>)> = HashMap::new();
@@ -301,7 +347,7 @@ fn grouped_skills(idx: &Value, seeds: &Value) -> Vec<Value> {
                 entry.1 = e.pointer("/attribution/sourceUrl").and_then(|v| v.as_str()).map(|s| s.to_string());
             }
             let sg_name = e.pointer("/attribution/group").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let card = card_of(e, &pending);
+            let card = card_of(app, e, &pending, lang);
             match entry.2.iter_mut().find(|(n, _)| *n == sg_name) {
                 Some((_, list)) => list.push(card),
                 None => entry.2.push((sg_name, vec![card])),
@@ -320,13 +366,18 @@ fn grouped_skills(idx: &Value, seeds: &Value) -> Vec<Value> {
                 (Some(x), Some(y)) => x.cmp(y),
             });
             // repo 名含 '/',JSON pointer 无法寻址,用 get 链取
-            let repo_summary = seeds
-                .get("sources")
-                .and_then(|s| s.get(&repo))
-                .and_then(|s| s.get("repoSummary"))
-                .and_then(|v| v.as_str())
-                .unwrap_or_default()
-                .to_string();
+            // 中文界面用手写种子简介;其它语言用翻译缓存(分析阶段生成)
+            let repo_summary = if lang == "zh" {
+                app.seeds
+                    .get("sources")
+                    .and_then(|s| s.get(&repo))
+                    .and_then(|s| s.get("repoSummary"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string()
+            } else {
+                resolve_repo_summary(&repo, lang, &app.seeds, &app.cache)
+            };
             (
                 repo.clone(),
                 count,
@@ -353,7 +404,7 @@ fn grouped_skills(idx: &Value, seeds: &Value) -> Vec<Value> {
         .map(|arr| {
             arr.iter()
                 .filter(|e| e.pointer("/attribution/repo").map(|r| r.is_null()).unwrap_or(true))
-                .map(|e| card_of(e, &pending))
+                .map(|e| card_of(app, e, &pending, lang))
                 .collect()
         })
         .unwrap_or_default();
@@ -363,8 +414,10 @@ fn grouped_skills(idx: &Value, seeds: &Value) -> Vec<Value> {
             "key": "__unknown__",
             "repo": null,
             "name": "未知来源",
+            "nameKey": "group.unknown",
             "sourceUrl": null,
             "repoSummary": "未找到安装记录、git 远端或 frontmatter 来源的技能。可手动归组或配置 LLM 后推断。",
+            "repoSummaryKey": "group.unknownHint",
             "subgroups": [{ "name": null, "skills": unknown }],
             "count": unknown.len(),
         }));
@@ -380,49 +433,59 @@ fn last_inference_map(idx: Option<&Value>) -> Map<String, Value> {
         .unwrap_or_default()
 }
 
-async fn skills_list(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Response {
+async fn skills_list(
+    axum::extract::State(app): axum::extract::State<Arc<App>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Response {
     let Some(idx) = app.cache.read_index() else {
-        return err_json("no_index", "尚未完成首次分析", StatusCode::SERVICE_UNAVAILABLE);
+        return err_json("no_index", "尚未完成首次分析", None, StatusCode::SERVICE_UNAVAILABLE);
     };
+    let lang = request_lang(&app, Some(&params));
     let pending = last_inference_map(Some(&idx));
     let cards: Vec<Value> = idx
         .get("entities")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().map(|e| card_of(e, &pending)).collect())
+        .map(|arr| arr.iter().map(|e| card_of(&app, e, &pending, &lang)).collect())
         .unwrap_or_default();
     Json(json!({
         "scannedAt": idx.get("scannedAt").cloned().unwrap_or(Value::Null),
         "trigger": idx.get("trigger").cloned().unwrap_or(Value::Null),
+        "language": lang,
+        "summaryLang": idx.get("summaryLang").cloned().unwrap_or(json!("zh")),
         "roots": idx.get("roots").cloned().unwrap_or(json!([])),
         "stats": idx.get("stats").cloned().unwrap_or(json!({})),
-        "groups": grouped_skills(&idx, &app.seeds),
+        "groups": grouped_skills(&app, &idx, &lang),
         "skills": cards,
         "ignored": idx.get("ignored").cloned().unwrap_or(json!([])),
     }))
     .into_response()
 }
 
-async fn categories(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Response {
+async fn categories(
+    axum::extract::State(app): axum::extract::State<Arc<App>>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Response {
     let idx = app.cache.read_index();
+    let lang = request_lang(&app, Some(&params));
     let mut counts: HashMap<String, u64> = HashMap::new();
     let mut order: Vec<String> = Vec::new();
     if let Some(arr) = idx.as_ref().and_then(|i| i.get("entities")).and_then(|v| v.as_array()) {
         for e in arr {
-            if let Some(cats) = e.get("categories").and_then(|v| v.as_array()) {
-                for c in cats {
-                    if let Some(name) = c.as_str() {
-                        if !counts.contains_key(name) {
-                            order.push(name.to_string());
-                        }
-                        *counts.entry(name.to_string()).or_insert(0) += 1;
-                    }
+            let er = entity_ref_of(e);
+            let repo = e.pointer("/attribution/repo").and_then(|v| v.as_str());
+            let resolved = resolve_stored_summary(&er, repo, &lang, &app.seeds, &app.cache);
+            for c in resolved.map(|r| r.categories).unwrap_or_default() {
+                if !counts.contains_key(&c) {
+                    order.push(c.clone());
                 }
+                *counts.entry(c).or_insert(0) += 1;
             }
         }
     }
     let mut list: Vec<(String, u64)> = order.into_iter().map(|n| (n.clone(), counts[&n])).collect();
     list.sort_by(|a, b| b.1.cmp(&a.1));
     Json(json!({
+        "language": lang,
         "categories": list.into_iter().map(|(name, count)| json!({ "name": name, "count": count })).collect::<Vec<_>>(),
     }))
     .into_response()
@@ -430,17 +493,22 @@ async fn categories(axum::extract::State(app): axum::extract::State<Arc<App>>) -
 
 /* ---------- 技能详情 / 文档 / 文件 ---------- */
 
-async fn skill_detail(axum::extract::State(app): axum::extract::State<Arc<App>>, AxumPath(id): AxumPath<String>) -> Response {
+async fn skill_detail(
+    axum::extract::State(app): axum::extract::State<Arc<App>>,
+    AxumPath(id): AxumPath<String>,
+    Query(params): Query<HashMap<String, String>>,
+) -> Response {
     let id_re = regex::Regex::new(r"^[A-Za-z0-9_-]+$").unwrap();
     if !id_re.is_match(&id) {
         return not_found();
     }
     let Some(e) = current_entity(&app, &id) else {
-        return err_json("not_found", "技能不存在", StatusCode::NOT_FOUND);
+        return err_json("not_found", "技能不存在", Some(json!({ "id": id })), StatusCode::NOT_FOUND);
     };
+    let lang = request_lang(&app, Some(&params));
     let idx = app.cache.read_index();
     let pending = last_inference_map(idx.as_ref());
-    let mut card = card_of(&e, &Map::new());
+    let mut card = card_of(&app, &e, &Map::new(), &lang);
     let real_path = e.get("realPath").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     // 重新读 SKILL.md frontmatter(详情页展示)
     let fm = std::fs::read_to_string(std::path::Path::new(&real_path).join("SKILL.md"))
@@ -483,15 +551,23 @@ async fn skill_doc(
     Query(params): Query<HashMap<String, String>>,
 ) -> Response {
     let Some(e) = current_entity(&app, &id) else {
-        return err_json("not_found", "技能不存在", StatusCode::NOT_FOUND);
+        return err_json("not_found", "技能不存在", Some(json!({ "id": id })), StatusCode::NOT_FOUND);
     };
     let rel_path = params.get("path").cloned().unwrap_or_else(|| "SKILL.md".to_string());
     let real_path = e.get("realPath").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     let Some(safe) = safe_join(&real_path, &rel_path) else {
-        return pipeline_err(crate::pipeline::PipelineError { code: "bad_path", message: format!("非法路径: {rel_path}") });
+        return pipeline_err(crate::pipeline::PipelineError::with_params(
+            "bad_path",
+            format!("非法路径: {rel_path}"),
+            json!({ "path": rel_path }),
+        ));
     };
     let Ok(raw) = std::fs::read_to_string(&safe) else {
-        return pipeline_err(crate::pipeline::PipelineError { code: "doc_unreadable", message: format!("文档不存在: {rel_path}") });
+        return pipeline_err(crate::pipeline::PipelineError::with_params(
+            "doc_unreadable",
+            format!("文档不存在: {rel_path}"),
+            json!({ "path": rel_path }),
+        ));
     };
     let fm = crate::frontmatter::parse_frontmatter(&raw);
     let blocks = crate::translate_blocks::parse_blocks(&fm.body, 6000);
@@ -528,21 +604,21 @@ async fn skill_file(
     Query(params): Query<HashMap<String, String>>,
 ) -> Response {
     let Some(e) = current_entity(&app, &id) else {
-        return err_json("not_found", "技能不存在", StatusCode::NOT_FOUND);
+        return err_json("not_found", "技能不存在", Some(json!({ "id": id })), StatusCode::NOT_FOUND);
     };
     let rel = params.get("path").cloned().unwrap_or_default();
     let real_path = e.get("realPath").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     let Some(safe) = safe_join(&real_path, &rel) else {
-        return err_json("not_found", &format!("文件不存在: {rel}"), StatusCode::NOT_FOUND);
+        return err_json("not_found", &format!("文件不存在: {rel}"), Some(json!({ "path": rel })), StatusCode::NOT_FOUND);
     };
     let Ok(meta) = std::fs::metadata(&safe) else {
-        return err_json("not_found", &format!("文件不存在: {rel}"), StatusCode::NOT_FOUND);
+        return err_json("not_found", &format!("文件不存在: {rel}"), Some(json!({ "path": rel })), StatusCode::NOT_FOUND);
     };
     if !meta.is_file() {
-        return err_json("not_found", &format!("文件不存在: {rel}"), StatusCode::NOT_FOUND);
+        return err_json("not_found", &format!("文件不存在: {rel}"), Some(json!({ "path": rel })), StatusCode::NOT_FOUND);
     }
     let Ok(body) = std::fs::read(&safe) else {
-        return err_json("not_found", &format!("文件不存在: {rel}"), StatusCode::NOT_FOUND);
+        return err_json("not_found", &format!("文件不存在: {rel}"), Some(json!({ "path": rel })), StatusCode::NOT_FOUND);
     };
     let ext = safe
         .extension()
@@ -579,21 +655,22 @@ async fn skill_retry(
 
 async fn translate_or_retry(app: Arc<App>, id: String, body: Bytes, retry: bool) -> Response {
     let Some(e) = current_entity(&app, &id) else {
-        return err_json("not_found", "技能不存在", StatusCode::NOT_FOUND);
+        return err_json("not_found", "技能不存在", Some(json!({ "id": id })), StatusCode::NOT_FOUND);
     };
     let payload = parse_body(&body);
     let path = payload.get("path").and_then(|v| v.as_str()).unwrap_or("SKILL.md").to_string();
     let state = app.cache.read_state();
     let consented = state.get("consentTranslate").and_then(|v| v.as_bool()).unwrap_or(false);
+    let lang = body_lang(&app, &payload);
     let real_path = e.get("realPath").and_then(|v| v.as_str()).unwrap_or_default().to_string();
     let api_key = app.translate_key().await;
 
     let calls0 = app.pipeline.provider.stats.calls();
     let credits0 = app.pipeline.provider.stats.credits();
     let result = if retry {
-        app.pipeline.retry_failed(&id, std::path::Path::new(&real_path), &path, &api_key, consented).await
+        app.pipeline.retry_failed(&id, std::path::Path::new(&real_path), &path, &api_key, consented, &lang).await
     } else {
-        app.pipeline.ensure_translation(&id, std::path::Path::new(&real_path), &path, &api_key, consented).await
+        app.pipeline.ensure_translation(&id, std::path::Path::new(&real_path), &path, &api_key, consented, &lang).await
     };
     // 翻译调用后把本次增量(次数/积分)实时累计进 state
     let d_calls = app.pipeline.provider.stats.calls().saturating_sub(calls0);
@@ -620,6 +697,7 @@ async fn consent(axum::extract::State(app): axum::extract::State<Arc<App>>, body
     let payload = parse_body(&body);
     let accept = payload.get("accept").and_then(|v| v.as_bool()).unwrap_or(false);
     let mut state = app.cache.read_state();
+    let ui_language = app.ui_language();
     if let Some(obj) = state.as_object_mut() {
         obj.insert("consentTranslate".into(), json!(accept));
     }
@@ -627,7 +705,7 @@ async fn consent(axum::extract::State(app): axum::extract::State<Arc<App>>, body
     if accept && !app.is_running().await {
         let app2 = app.clone();
         tokio::spawn(async move {
-            app2.run_analysis("consent").await;
+            app2.run_analysis("consent", Some(ui_language)).await;
         });
     }
     Json(json!({ "ok": true, "consentTranslate": accept })).into_response()
@@ -642,13 +720,20 @@ async fn clear_warnings(axum::extract::State(app): axum::extract::State<Arc<App>
     Json(json!({ "ok": true })).into_response()
 }
 
-async fn analyze(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Response {
+async fn analyze(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
+    let payload = parse_body(&body);
+    let lang = body_lang(&app, &payload);
     if app.is_running().await {
+        // 排队到当前轮之后(语言作为待办记录)
+        let app2 = app.clone();
+        tokio::spawn(async move {
+            app2.run_analysis("manual", Some(lang)).await;
+        });
         return Json(json!({ "ok": true, "started": false, "running": true })).into_response();
     }
     let app2 = app.clone();
     tokio::spawn(async move {
-        app2.run_analysis("manual").await;
+        app2.run_analysis("manual", Some(lang)).await;
     });
     Json(json!({ "ok": true, "started": true })).into_response()
 }
@@ -661,43 +746,48 @@ fn extract_skill_ids(payload: &Value) -> Option<Vec<String>> {
     Some(arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
 }
 
-async fn overrides(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
-    let payload = parse_body(&body);
-    let Some(skill_ids) = extract_skill_ids(&payload) else {
-        return err_json("bad_request", "skillIds 必须为非空数组", StatusCode::BAD_REQUEST);
-    };
-    let repo = payload.get("repo").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+async fn apply_repo_overrides(app: &Arc<App>, payload: &Value, set_repo: bool) -> Vec<String> {
+    let skill_ids = extract_skill_ids(payload).unwrap_or_default();
     let mut data = app.cache.read_overrides();
     let entries = data.get_mut("entries").and_then(|v| v.as_object_mut()).unwrap();
     for id in &skill_ids {
         let mut entry = entries.get(id).and_then(|v| v.as_object()).cloned().unwrap_or_default();
-        entry.insert("repo".into(), json!(repo));
-        if repo.is_empty() {
-            entry.remove("confirmInference");
+        if set_repo {
+            let repo = payload.get("repo").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+            entry.insert("repo".into(), json!(repo));
+            if repo.is_empty() {
+                entry.remove("confirmInference");
+            }
+        } else {
+            entry.insert("confirmInference".into(), json!(true));
+            entry.remove("repo");
         }
         entries.insert(id.clone(), Value::Object(entry));
     }
     app.cache.write_overrides(&data);
-    let idx = app.run_analysis("overrides").await;
-    Json(json!({ "ok": true, "affected": skill_ids, "groups": grouped_skills(&idx, &app.seeds) })).into_response()
+    skill_ids
+}
+
+async fn overrides(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
+    let payload = parse_body(&body);
+    if extract_skill_ids(&payload).is_none() {
+        return err_json("bad_request", "skillIds 必须为非空数组", None, StatusCode::BAD_REQUEST);
+    }
+    let skill_ids = apply_repo_overrides(&app, &payload, true).await;
+    let lang = body_lang(&app, &payload);
+    let idx = app.run_analysis("overrides", Some(lang.clone())).await;
+    Json(json!({ "ok": true, "affected": skill_ids, "groups": grouped_skills(&app, &idx, &lang) })).into_response()
 }
 
 async fn confirm_inference(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
     let payload = parse_body(&body);
-    let Some(skill_ids) = extract_skill_ids(&payload) else {
-        return err_json("bad_request", "skillIds 必须为非空数组", StatusCode::BAD_REQUEST);
-    };
-    let mut data = app.cache.read_overrides();
-    let entries = data.get_mut("entries").and_then(|v| v.as_object_mut()).unwrap();
-    for id in &skill_ids {
-        let mut entry = entries.get(id).and_then(|v| v.as_object()).cloned().unwrap_or_default();
-        entry.insert("confirmInference".into(), json!(true));
-        entry.remove("repo");
-        entries.insert(id.clone(), Value::Object(entry));
+    if extract_skill_ids(&payload).is_none() {
+        return err_json("bad_request", "skillIds 必须为非空数组", None, StatusCode::BAD_REQUEST);
     }
-    app.cache.write_overrides(&data);
-    let idx = app.run_analysis("confirm").await;
-    Json(json!({ "ok": true, "affected": skill_ids, "groups": grouped_skills(&idx, &app.seeds) })).into_response()
+    let skill_ids = apply_repo_overrides(&app, &payload, false).await;
+    let lang = body_lang(&app, &payload);
+    let idx = app.run_analysis("confirm", Some(lang.clone())).await;
+    Json(json!({ "ok": true, "affected": skill_ids, "groups": grouped_skills(&app, &idx, &lang) })).into_response()
 }
 
 /* ---------- 桌面设置(托盘/自启;仅桌面模式有实际效果,--serve 下只读写文件) ---------- */
@@ -739,12 +829,57 @@ async fn settings_state(app: &App) -> Value {
             "model": llm_saved.get("model").cloned().unwrap_or(json!("")),
         },
         "credentialStoreKind": app.creds.kind().await,
+        "language": app.ui_language(),
         "presets": app.presets.get("presets").cloned().unwrap_or(json!([])),
     })
 }
 
 async fn settings(axum::extract::State(app): axum::extract::State<Arc<App>>) -> Response {
     Json(settings_state(&app).await).into_response()
+}
+
+/// 语言(界面文案与译文目标语言;桌面端托盘/标题也从这里读)
+async fn settings_language(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
+    let payload = parse_body(&body);
+    let lang = normalize_lang(
+        payload
+            .get("language")
+            .and_then(|v| v.as_str())
+            .or_else(|| payload.get("lang").and_then(|v| v.as_str())),
+    );
+    let mut state = app.cache.read_state();
+    // 与 Node 对齐:state.uiLanguage !== lang(缺失视为变化,会触发一轮语言分析)
+    let changed = match state.get("uiLanguage").and_then(|v| v.as_str()) {
+        Some(stored) => stored != lang,
+        None => true,
+    };
+    if let Some(obj) = state.as_object_mut() {
+        obj.insert("uiLanguage".into(), json!(lang));
+    }
+    app.cache.write_state(&state);
+    let idx = app.cache.read_index();
+    // 首次升级(索引没有 summaryLang/metaVersion)或语言变化时补一轮增量分析:
+    // 生成该语言的概述/分类/仓库简介缓存;分析进行中则排队到当前轮之后。
+    let needs_analysis = changed
+        || idx.is_none()
+        || idx.as_ref().and_then(|i| i.get("summaryLang")).and_then(|v| v.as_str()) != Some(lang.as_str())
+        || idx.as_ref().and_then(|i| i.get("metaVersion")).and_then(|v| v.as_i64()) != Some(SUMMARY_META_VERSION);
+    let was_running = app.is_running().await;
+    if needs_analysis {
+        let app2 = app.clone();
+        let lang2 = lang.clone();
+        tokio::spawn(async move {
+            app2.run_analysis("language", Some(lang2)).await;
+        });
+    }
+    Json(json!({
+        "ok": true,
+        "language": lang,
+        "changed": changed,
+        "analysisStarted": needs_analysis && !was_running,
+        "queued": needs_analysis && was_running,
+    }))
+    .into_response()
 }
 
 async fn settings_providers(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
@@ -803,8 +938,9 @@ async fn settings_providers(axum::extract::State(app): axum::extract::State<Arc<
     let mut analysis_started = false;
     if !app.is_running().await && (app.translate_configured().await || app.llm_configured().await) {
         let app2 = app.clone();
+        let lang = app.ui_language();
         tokio::spawn(async move {
-            app2.run_analysis("settings").await;
+            app2.run_analysis("settings", Some(lang)).await;
         });
         analysis_started = true;
     }
@@ -851,7 +987,7 @@ async fn settings_test_llm(axum::extract::State(app): axum::extract::State<Arc<A
         .or_else(|| saved.get("model").and_then(|v| v.as_str()).map(|s| s.to_string()))
         .unwrap_or_default();
     if base_url.is_empty() {
-        return err_json("bad_request", "缺少 API 地址(选择预设或填写自定义地址)", StatusCode::BAD_REQUEST);
+        return err_json("bad_request", "缺少 API 地址(选择预设或填写自定义地址)", None, StatusCode::BAD_REQUEST);
     }
     Json(crate::connectivity::test_llm(&base_url, &api_key, &model).await).into_response()
 }
@@ -868,10 +1004,12 @@ async fn settings_test_translate(axum::extract::State(app): axum::extract::State
         None => app.creds.get("uapipro").await.unwrap_or_default(),
     };
     let full = payload.get("full").and_then(|v| v.as_bool()).unwrap_or(false);
+    let lang = body_lang(&app, &payload);
     let result = crate::connectivity::test_translate(
         &app.config.translate.endpoint,
         &api_key,
         full,
+        &lang,
         &app.config.translate.style,
         &app.config.translate.context,
     )

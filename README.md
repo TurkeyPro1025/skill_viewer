@@ -22,7 +22,7 @@ CLIs such as [vercel-labs/skills](https://github.com/vercel-labs/skills) flatten
 
 One scan with Skills Lingo gives you:
 
-- **Bilingual reading**: original on the left, Chinese translation on the right, aligned section by section.
+- **Bilingual reading**: documents in the interface language are shown in a single column; other documents get a section-by-section translation in the interface language (Chinese ↔ English).
 - **Browsing by purpose** — engineering workflow, writing, debugging, research and more — with one-line summaries that help you pick the right skill.
 - **Precise attribution** to the source repository: the install manifest is read first; without a record, the source is inferred level by level and clearly labeled.
 - **Agent coverage**: see which tool roots are active, which entries are copies, and where content has diverged.
@@ -30,7 +30,7 @@ One scan with Skills Lingo gives you:
 
 ## Features
 
-- **Block-level bilingual reading.** Original and translation aligned section by section. Code blocks, commands, URLs, paths and environment variables are extracted before translation and restored afterwards — never rewritten. Chinese source documents are shown in a single column.
+- **Block-level bilingual reading.** Original and translation aligned section by section. Code blocks, commands, URLs, paths and environment variables are extracted before translation and restored afterwards — never rewritten. Documents whose language matches the interface are shown in a single column; switching the UI language changes the translation target and keeps a separate cache per language. In non-Chinese UIs the card summary is the frontmatter description, and category tags and repository blurbs are translated and cached too.
 - **Categorized quick reference.** A one-line summary explains what a skill is and when to use it. Click a category tag (engineering workflow, writing, debugging and so on) to filter instantly, alongside search and repository grouping. Built-in seeds cover common skills; an optional LLM fills in the rest.
 - **Translation-friendly by design.** Translations are generated when a document is first opened, reused while the content is unchanged, and deduplicated across concurrent requests. Long documents are chunked with global throttling; attached documents are translated on demand.
 - **Lock-file attribution engine.** Reads the skills CLI install manifest `.skill-lock.json` first. Without a record, it falls back to the `.git` remote, frontmatter source and LLM inference, marking inferred sources as "unconfirmed". Manual grouping always wins.
@@ -76,9 +76,9 @@ Output: `desktop/target/release/skill-viewer-desktop.exe` and the installers und
 Open **⚙ Settings** in the top-right corner:
 
 - **Translation service**: UApiPro cloud translation. Paste the API key → **Test connection (free)** → Save to enable bilingual reading (4 credits per call; long documents are chunked and billed per call; a privacy confirmation appears on first use).
-- **LLM service**: choose a preset (DeepSeek / Zhipu GLM / custom OpenAI-compatible) → enter the key → **Test connection** → Save to generate summaries and attribution inferences.
+- **LLM service**: choose a preset (DeepSeek / Zhipu GLM / custom OpenAI-compatible) → enter the key → **Test connection** → Save to generate Chinese summaries and attribution inferences. In non-Chinese UIs the card summary uses the frontmatter description instead, so no LLM summary is generated.
 
-> The app UI is currently Chinese. An English UI is planned for **v1.2.0**; this website and README are already bilingual.
+> The app UI is available in **Chinese and English**. Switch languages with the picker in the top-right corner; UI copy and the translation target language change together, and translations (documents, summaries, category tags and repository blurbs) are cached per language.
 
 ### CLI options
 
@@ -102,7 +102,7 @@ node server.js --port 4763 --host 127.0.0.1 --config config.json --no-scan
 
 **Document content**
 
-- **Translation**: explicit consent is required before bilingual reading is enabled. Without consent, no new translation requests are sent, but locally cached translations remain viewable. After consent, the body of the document you open is sent. **Manual update** pre-translates all English entry-point `SKILL.md` files, provided consent has been given and a translation service is configured.
+- **Translation**: explicit consent is required before bilingual reading is enabled. Without consent, no new translation requests are sent, but locally cached translations remain viewable. After consent, the body of the document you open is sent, and switching the UI language also translates skill summaries, category tags and repository blurbs into that language; the results are cached. **Manual update** pre-translates all entry-point `SKILL.md` files whose language differs from the current interface language, provided consent has been given and a translation service is configured.
 - **LLM**: once an LLM is saved and enabled, analysis sends the frontmatter description and first 3,000 characters of the body for skills without summaries, and the first 4,000 characters of `SKILL.md` for skills without attribution, to the LLM service you configured. This can happen at startup and is not limited to documents you have opened; there is no separate consent dialog.
 - Code blocks, commands, paths and environment variables are extracted before sending; translation never rewrites these fragments.
 - Scanning, deduplication and search all run locally. Without an LLM configured, nothing leaves your machine except translation requests.

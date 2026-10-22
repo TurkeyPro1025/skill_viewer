@@ -68,7 +68,7 @@ Other conventions:
 - The UI and the service communicate **only through the HTTP JSON API** (the Node and desktop shells share the same frontend). The frontend stays build-free and CDN-free.
 - **Key security** (`lib/credentials.js` / `desktop/src/credentials.rs`): API keys saved from the web settings page are encrypted to disk with an OS credential-store master key plus AES-256-GCM. Any new provider that needs a key must read it from encrypted storage — never write plaintext or return it from an API. State-changing endpoints must enforce same-origin checks.
 - **Keep both implementations in sync**: the service layer exists twice — Node (`lib/`) and Rust (`desktop/src/`) — sharing the same API contract and cache/credential file formats. When you change a contract or file format, **change both sides** and run both test suites (see below). Land new extension points in Node first, then port them to Rust.
-- **Bilingual copy**: interface and documentation copy is bilingual (Chinese + English), with English as the international release surface. New user-visible UI strings must go through locale entries (the language-pack system lands in v1.2.0) — do not hardcode copy. Code comments explain "why". Static site/document copy can be drafted with the one-time batch tool in `scripts/translate-copy.js` (reads `UAPI_KEY` from the environment, protects code/URLs/placeholders, and writes a JSON draft for review).
+- **Bilingual copy**: interface and documentation copy is bilingual (Chinese + English), with English as the international release surface. All user-visible UI strings live in `public/locales.json` (one file, all languages) — add the same key to both `zh` and `en`, use `t('key', params)` for dynamic text, and never hardcode copy. `npm test` fails when the two key sets differ, a `data-i18n*` key is missing, or a static `t('...')` key is undefined. Translations are cached per language; in non-Chinese UIs the card summary is the frontmatter description (translated when needed), while category tags and repository blurbs are translated from their Chinese sources into `summaries/labels/{lang}.json` and `summaries/repos/{lang}.json`. New language-sensitive features must carry the `lang` through to the cache path. Code comments explain "why". Static site/document copy can be drafted with the one-time batch tool in `scripts/translate-copy.js` (reads `UAPI_KEY` from the environment, protects code/URLs/placeholders, and writes a JSON draft for review).
 - Run `npm test` before submitting (and `SKILLS_LINGO_TEST_IMPL=rust npm test` when Rust is involved). For behavior changes that touch real external services, mirror them in the stubs.
 - Seed summaries live in `seeds/summaries.json`, not hardcoded in the source. Contributions of hand-written summaries for well-known repositories are welcome. LLM presets live in `lib/llm/presets.json`; new providers are welcome.
 
@@ -76,7 +76,7 @@ Other conventions:
 
 ```bash
 npm run check                             # syntax check for every project JS file
-npm test                                  # Node API suite (31 tests) + site build checks (13 tests)
+npm test                                  # Node API suite (35 tests) + language-pack checks (5) + site build checks (13)
 SKILLS_LINGO_TEST_IMPL=rust npm test      # the same API suite against the Rust implementation (white-box tests skipped)
 ```
 
@@ -85,10 +85,11 @@ SKILLS_LINGO_TEST_IMPL=rust npm test      # the same API suite against the Rust 
 The UI has no automated test seam. After changing the frontend, walk through:
 
 1. Home page: groups/cards/badges/category filters/search/empty state;
-2. Viewer: English documents in side-by-side mode with aligned scrolling; Chinese documents in a single column; sidebar document switching; inline images;
+2. Viewer: documents in the interface language in a single column; other documents side-by-side with aligned scrolling; sidebar document switching; inline images;
 3. Privacy dialog: appears on first translation, does not reappear after consent, ⓘ reopens it;
 4. Attribution: multi-select, assign to repository, move to unknown, confirm inference, all preserved after re-analysis;
-5. Manual update: progress bar appears and finishes; credits do not increase when content is unchanged.
+5. Manual update: progress bar appears and finishes; credits do not increase when content is unchanged;
+6. Language: switch 中文 / English with the picker in the top-right corner; the page reloads once, UI copy, dates and `<html lang>` follow; Chinese UI shows English documents bilingually and Chinese documents in one column; English UI is the reverse; card summaries use the description, and category tags/repository blurbs appear translated; switching back hits each language's own translation cache without new credits.
 
 ## Regenerating the social preview image
 
@@ -175,7 +176,7 @@ module.exports = {
 - UI 与服务之间**只通过 HTTP JSON API 通信**（Node 版与桌面壳共用同一前端），前端保持零构建、零 CDN 依赖。
 - **密钥安全**（`lib/credentials.js` / `desktop/src/credentials.rs`）：网页设置页保存的 API key 经 OS 凭据库主密钥 + AES-256-GCM 加密落盘；新增任何需要密钥的 provider 时，密钥读取必须走加密存储，严禁明文落盘或明文回传 API；状态变更端点必须经过同源校验。
 - **双实现同步**：服务层有 Node（`lib/`）与 Rust（`desktop/src/`）两份实现，共享同一 API 契约与缓存/凭据文件格式。改契约或文件格式时**两边都要改**，并跑两套测试（见下）；新扩展点先在 Node 侧落地，Rust 侧跟进移植。
-- **双语文案**：界面与文档中英双语，英文为国际发布面；新增界面文案必须走语言包词条（语言包体系随 v1.2.0 落地），禁止硬编码。代码注释说明“为什么”。官网/文档静态文案可用一次性批量工具 `scripts/translate-copy.js` 起草（从环境变量读取 `UAPI_KEY`，保护代码/URL/占位符，输出 JSON 草案供人工校对）。
+- **双语文案**：界面与文档中英双语，英文为国际发布面；所有界面文案必须放在 `public/locales.json`（单文件、含全部语言）的 `zh` 与 `en` 同名词条中，动态文案用 `t('key', params)`，禁止硬编码。词条 key 集合不一致、`data-i18n*` 引用了不存在的词条、静态 `t('...')` 未定义时 `npm test` 直接失败。译文按语言分存；非中文界面卡片摘要直接使用 frontmatter 描述（需要时翻译），分类标签与仓库简介从中文来源翻译到 `summaries/labels/{lang}.json` 与 `summaries/repos/{lang}.json`。涉及语言的新功能必须把 `lang` 贯通到缓存路径。代码注释说明“为什么”。官网/文档静态文案可用一次性批量工具 `scripts/translate-copy.js` 起草（从环境变量读取 `UAPI_KEY`，保护代码/URL/占位符，输出 JSON 草案供人工校对）。
 - 提交前 `npm test` 全绿（涉及 Rust 侧再跑 `SKILLS_LINGO_TEST_IMPL=rust npm test`）；涉及真实外部服务的行为改动，请在 stub 里同步模拟。
 - 种子概述数据在 `seeds/summaries.json` 维护，不硬编码在代码里；欢迎为更多知名仓库补充人工概述。LLM 预设在 `lib/llm/presets.json`，欢迎补充新服务商。
 
@@ -183,7 +184,7 @@ module.exports = {
 
 ```bash
 npm run check                             # 全项目 JS 语法检查
-npm test                                  # Node API 套件(31 项)+ 站点构建检查(13 项)
+npm test                                  # Node API 套件(35 项)+ 语言包完整性(5 项)+ 站点构建检查(13 项)
 SKILLS_LINGO_TEST_IMPL=rust npm test      # 同一 API 套件跑 Rust 实现(白盒测试跳过)
 ```
 
@@ -192,10 +193,11 @@ SKILLS_LINGO_TEST_IMPL=rust npm test      # 同一 API 套件跑 Rust 实现(白
 UI 不设自动测试缝，改前端后请过一遍：
 
 1. 首页渲染：分组/卡片/徽章/分类筛选/搜索/空态；
-2. 查看器：英文文档左右对照、块对齐滚动；中文文档单栏；侧栏切换附属文档；图片内联；
+2. 查看器：与界面语言一致的文档单栏直出；其余文档左右对照、块对齐滚动；侧栏切换附属文档；图片内联；
 3. 隐私弹窗：首次翻译出现、同意后不再骚扰、ⓘ 可回看；
 4. 整理归属：多选、归入仓库、移入未知、确认推断，重新分析后保留；
-5. 手动更新：进度条出现并结束，内容未变时积分不涨。
+5. 手动更新：进度条出现并结束，内容未变时积分不涨；
+6. 语言：主页面右上角语言下拉切换 中文 / English，页面刷新一次，文案、日期与 `<html lang>` 跟随；中文界面英文文档左右对照、中文文档单栏；英文界面相反；卡片摘要使用描述，分类标签与仓库简介显示译文；切回原语言命中各自语言的译文缓存、不产生新积分。
 
 ## 重新生成社交预览图
 

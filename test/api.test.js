@@ -25,6 +25,7 @@ const { createAnalyzer } = require('../lib/analyze');
 const { createApp } = require('../lib/api');
 const { createEngine } = require('../lib/attribution/engine');
 const lockReader = require('../lib/attribution/recognizers/lock-reader');
+const { sha1 } = require('../lib/util');
 const presets = require('../lib/llm/presets.json');
 
 /* ---------- 实现选择:node(默认)| rust(desktop Tauri 版) ----------
@@ -195,6 +196,13 @@ async function waitFor(fn, timeoutMs = 30000, everyMs = 100) {
 
 async function runAnalysis(base) {
   await post(base, '/api/analyze');
+  await waitFor(async () => {
+    const st = await get(base, '/api/status');
+    return !st.body.running && st.body.phase?.phase === 'done';
+  });
+}
+
+async function waitForIdle(base) {
   await waitFor(async () => {
     const st = await get(base, '/api/status');
     return !st.body.running && st.body.phase?.phase === 'done';
@@ -643,6 +651,9 @@ test('13 UI 冒烟:首页可渲染', async () => {
   const js = await get(ctx.base, '/app.js');
   assert.equal(js.status, 200);
   assert.match(js.headers.get('content-type'), /javascript/);
+  const locales = await get(ctx.base, '/locales.json');
+  assert.equal(locales.status, 200);
+  assert.ok(locales.body.zh && locales.body.en, '语言包由服务端静态下发');
   const spa = await get(ctx.base, '/whatever');
   assert.equal(spa.status, 200, '未知路径 SPA 兜底回首页');
 });
@@ -974,6 +985,195 @@ test('17 存储密钥端到端:无环境变量时 LLM 概述与翻译均走加�
     assert.equal(t.status, 200, '翻译走存储密钥');
   } finally {
     await closeServer(app2.server);
-  
+  }
+});
+
+/* ---------- 24 v1.2.0 语言设置:摘要=描述,分类/仓库简介翻译缓存 ---------- */
+
+test('24 语言设置:英文界面摘要=描述,分类/仓库简介翻译并缓存', async () => {
+  // 先确保中文概述/分类缓存齐全,避免英文缓存因源分类后续变化而失效
+  await runAnalysis(ctx.base);
+
+  const switched = await post(ctx.base, '/api/settings/language', { language: 'en' });
+  assert.equal(switched.status, 200);
+  assert.equal(switched.body.language, 'en');
+  assert.equal(switched.body.changed, true);
+  await waitForIdle(ctx.base);
+
+  const en = (await get(ctx.base, '/api/skills?lang=en')).body;
+  assert.equal(en.language, 'en');
+
+  const alphaEn = skillsByDir(en, 'alpha')[0];
+  assert.equal(alphaEn.summarySource, 'description', '英文技能摘要 = frontmatter 描述');
+  assert.equal(alphaEn.summary, alphaEn.description);
+  assert.deepEqual(alphaEn.categories.sort(), ['【EN】种子分类A', '【EN】设计'].sort(), '种子分类翻译成英文');
+
+  const cnEn = skillsByDir(en, 'chinese-one')[0];
+  assert.equal(cnEn.summarySource, 'description');
+  assert.ok(cnEn.summary.startsWith('【EN】'), '中文描述翻译成英文');
+  assert.deepEqual(cnEn.categories, ['【EN】中文测试']);
+
+  const deltaEn = skillsByDir(en, 'delta')[0];
+  assert.equal(deltaEn.summarySource, 'description', '英文技能不生成 LLM 概述');
+  assert.equal(deltaEn.summary, deltaEn.description);
+  assert.deepEqual(deltaEn.categories, ['【EN】工程流程'], '中文概述缓存里的分类也翻译');
+
+  const mono = en.groups.find((g) => g.repo === 'example/mono');
+  assert.ok(mono.repoSummary.startsWith('【EN】'), '仓库简介翻译成英文');
+
+  const cats = (await get(ctx.base, '/api/categories?lang=en')).body;
+  assert.ok(cats.categories.some((c) => c.name === '【EN】工程流程'), '翻译后的分类进入筛选');
+
+  const cacheFile = path.join(DATA, 'skills', cnEn.id, 'en.json');
+  assert.ok(fs.existsSync(cacheFile), '英文概述缓存落盘');
+  const cached = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+  assert.equal(cached.lang, 'en');
+  assert.equal(cached.summarySource, 'description');
+  assert.ok(cached.sourceHash);
+  const repoCache = path.join(DATA, 'summaries', 'repos', 'en.json');
+  assert.ok(fs.existsSync(repoCache), '仓库简介翻译缓存落盘');
+  assert.ok(fs.readFileSync(repoCache, 'utf8').includes('【EN】示例单仓库'));
+  const labelCache = path.join(DATA, 'summaries', 'labels', 'en.json');
+  assert.ok(fs.existsSync(labelCache), '分类标签翻译缓存落盘');
+  assert.ok(fs.readFileSync(labelCache, 'utf8').includes('【EN】工程流程'));
+
+  // 中文 → 英文再切换:元数据已缓存,不产生新的翻译调用
+  await post(ctx.base, '/api/settings/language', { language: 'zh' });
+  await waitForIdle(ctx.base);
+  const callsBefore = ctx.uapi.stats().calls;
+  await post(ctx.base, '/api/settings/language', { language: 'en' });
+  await waitForIdle(ctx.base);
+  assert.equal(ctx.uapi.stats().calls, callsBefore, '概述/分类/仓库简介翻译缓存命中');
+
+  const zh = (await get(ctx.base, '/api/skills?lang=zh')).body;
+  assert.equal(skillsByDir(zh, 'alpha')[0].summarySource, 'seed', '中文界面仍使用手写种子');
+  assert.equal(skillsByDir(zh, 'delta')[0].summary, 'LLM 生成的中文概述');
+
+  // 切回中文,避免影响后续用例
+  await post(ctx.base, '/api/settings/language', { language: 'zh' });
+  await waitForIdle(ctx.base);
+});
+
+/* ---------- 25 译文缓存按语言分存 + v1 懒迁移 ---------- */
+
+test('25 译文缓存:按语言分存,v1 中文缓存懒迁移且不重译', async () => {
+  const app = await startApp({ dataDir: path.join(TMP, 'data-lang-cache') });
+  try {
+    await post(app.base, '/api/consent', { accept: true });
+    await waitForIdle(app.base);
+    const data = (await get(app.base, '/api/skills')).body;
+    const alpha = skillsByDir(data, 'alpha')[0];
+    const alphaRaw = fs.readFileSync(path.join(FIXTURES, 'roots', 'agents', 'skills', 'alpha', 'SKILL.md'), 'utf8');
+    const alphaHash = sha1(alphaRaw);
+    const legacyFile = path.join(TMP, 'data-lang-cache', 'translations', alpha.id, `${alphaHash}.json`);
+    fs.mkdirSync(path.dirname(legacyFile), { recursive: true });
+    fs.writeFileSync(legacyFile, JSON.stringify({
+      version: 1,
+      skillId: alpha.id,
+      docRelPath: 'SKILL.md',
+      docHash: alphaHash,
+      provider: 'uapipro',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      blocks: [{ id: 'b0', type: 'paragraph', src: 'legacy', translated: '旧中文译文', status: 'ok' }],
+      calls: 1,
+      credits: 4,
+    }));
+
+    const before = ctx.uapi.stats().calls;
+    const zh = await post(app.base, `/api/skills/${alpha.id}/translate`, { path: 'SKILL.md', lang: 'zh' });
+    assert.equal(zh.status, 200);
+    assert.equal(zh.body.cached, true);
+    assert.equal(zh.body.lang, 'zh');
+    assert.equal(zh.body.blocks[0].translated, '旧中文译文');
+    assert.equal(ctx.uapi.stats().calls, before, '迁移命中不产生新调用');
+
+    const newZhFile = path.join(TMP, 'data-lang-cache', 'translations', alpha.id, 'zh', `${alphaHash}.json`);
+    assert.ok(fs.existsSync(newZhFile), 'v1 缓存已迁移到语言段');
+    assert.ok(!fs.existsSync(legacyFile), '旧路径已清理');
+    const migrated = JSON.parse(fs.readFileSync(newZhFile, 'utf8'));
+    assert.equal(migrated.version, 2);
+    assert.equal(migrated.lang, 'zh');
+
+    // 英文请求不得误命中中文缓存;英文界面下中文文档落到 en 语言段
+    const cn = skillsByDir(data, 'chinese-one')[0];
+    const cnRaw = fs.readFileSync(path.join(FIXTURES, 'roots', 'agents', 'skills', 'chinese-one', 'SKILL.md'), 'utf8');
+    const cnHash = sha1(cnRaw);
+    const en = await post(app.base, `/api/skills/${cn.id}/translate`, { path: 'SKILL.md', lang: 'en' });
+    assert.equal(en.status, 200);
+    assert.equal(en.body.cached, false);
+    assert.equal(en.body.lang, 'en');
+    assert.ok(en.body.blocks.some((b) => b.translated.startsWith('【EN】')), '英文译文来自英文目标语言');
+    assert.ok(ctx.uapi.stats().hasLang('en'));
+    assert.ok(fs.existsSync(path.join(TMP, 'data-lang-cache', 'translations', cn.id, 'en', `${cnHash}.json`)), '英文译文落到 en 语言段');
+  } finally {
+    await closeServer(app.server);
+  }
+});
+
+/* ---------- 26 消息码契约 ---------- */
+
+test('26 消息码契约:代表性错误返回稳定 code(+params)', async () => {
+  const app = await startApp({ dataDir: path.join(TMP, 'data-codes'), llmEnv: false, translateEnv: true });
+  try {
+    const noIndex = await get(app.base, '/api/skills');
+    assert.equal(noIndex.status, 503);
+    assert.equal(noIndex.body.error.code, 'no_index');
+
+    await runAnalysis(app.base);
+    const data = (await get(app.base, '/api/skills')).body;
+    const alpha = skillsByDir(data, 'alpha')[0];
+
+    const noConsent = await post(app.base, `/api/skills/${alpha.id}/translate`, { path: 'SKILL.md', lang: 'zh' });
+    assert.equal(noConsent.status, 409);
+    assert.equal(noConsent.body.error.code, 'consent_required');
+
+    // 清除翻译密钥 → provider_unconfigured(优先于 consent 校验)
+    await post(app.base, '/api/settings/providers', { translate: { apiKey: null } });
+    const noProvider = await post(app.base, `/api/skills/${alpha.id}/translate`, { path: 'SKILL.md', lang: 'zh' });
+    assert.equal(noProvider.status, 503);
+    assert.equal(noProvider.body.error.code, 'provider_unconfigured');
+
+    const badDoc = await get(app.base, `/api/skills/${alpha.id}/doc?path=nope.md`);
+    assert.equal(badDoc.status, 404);
+    assert.equal(badDoc.body.error.code, 'doc_unreadable');
+    assert.equal(badDoc.body.error.params.path, 'nope.md');
+
+    const badReq = await post(app.base, '/api/overrides', {});
+    assert.equal(badReq.status, 400);
+    assert.equal(badReq.body.error.code, 'bad_request');
+
+    const badKey = await post(app.base, '/api/settings/test/translate', { apiKey: 'nope' });
+    assert.equal(badKey.body.keyAccepted, false);
+    assert.equal(badKey.body.code, 'auth_failed');
+  } finally {
+    await closeServer(app.server);
+  }
+});
+
+/* ---------- 27 手动预翻译目标语言 ---------- */
+
+test('27 手动预翻译目标 = 当前界面语言,只翻非该语言入口文档', async () => {
+  const app = await startApp({ dataDir: path.join(TMP, 'data-lang-pretranslate') });
+  try {
+    const switched = await post(app.base, '/api/settings/language', { language: 'en' });
+    assert.equal(switched.status, 200);
+    await waitForIdle(app.base);
+
+    await post(app.base, '/api/consent', { accept: true });
+    await waitForIdle(app.base);
+
+    const before = ctx.uapi.stats();
+    await post(app.base, '/api/analyze', { lang: 'en' });
+    await waitForIdle(app.base);
+    const after = ctx.uapi.stats();
+
+    const newCalls = after.texts.slice(before.calls);
+    const newLangs = after.langs.slice(before.calls);
+    assert.ok(newCalls.length >= 1, '手动更新应预翻中文入口文档');
+    assert.ok(newLangs.every((l) => l === 'en'), `预翻译目标语言应为 en,实际 ${[...new Set(newLangs)].join(',')}`);
+    assert.ok(newCalls.some((t) => t.includes('这是一段中文正文')), '中文来源技能被译成英文');
+    assert.ok(!newCalls.some((t) => t.includes('Alpha skill for testing')), '英文入口文档不做无谓翻译');
+  } finally {
+    await closeServer(app.server);
   }
 });

@@ -33,7 +33,13 @@ impl UApiProProvider {
     }
 
     /// 翻译一段文本(≤ maxCharsPerCall 字符),返回 (译文, 积分)。
-    pub async fn translate_text(&self, text: &str, api_key: &str) -> Result<(String, u64), TranslateError> {
+    /// target_lang 逐次传入(v1.2.0 跟随界面语言),缺省回落配置里的默认语言。
+    pub async fn translate_text(
+        &self,
+        text: &str,
+        api_key: &str,
+        target_lang: Option<&str>,
+    ) -> Result<(String, u64), TranslateError> {
         if text.chars().count() > self.cfg.max_chars_per_call {
             return Err(TranslateError {
                 code: "too_long".into(),
@@ -46,7 +52,8 @@ impl UApiProProvider {
         }
         let _gate = self.throttle.acquire().await;
 
-        let url = format!("{}?target_lang={}", self.cfg.endpoint, self.cfg.target_lang);
+        let lang = target_lang.unwrap_or(&self.cfg.target_lang);
+        let url = format!("{}?target_lang={}", self.cfg.endpoint, lang);
         let mut req = self.client.post(&url).header("Content-Type", "application/json");
         if !api_key.is_empty() {
             req = req.header(&self.cfg.auth_header, format!("{}{}", self.cfg.auth_prefix, api_key));
