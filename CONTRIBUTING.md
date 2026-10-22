@@ -76,7 +76,7 @@ Other conventions:
 
 ```bash
 npm run check                             # syntax check for every project JS file
-npm test                                  # Node API suite (35 tests) + language-pack checks (5) + site build checks (13)
+npm test                                  # Node API suite (36 tests) + language-pack checks (5) + site build checks (13)
 SKILLS_LINGO_TEST_IMPL=rust npm test      # the same API suite against the Rust implementation (white-box tests skipped)
 ```
 
@@ -184,7 +184,7 @@ module.exports = {
 
 ```bash
 npm run check                             # 全项目 JS 语法检查
-npm test                                  # Node API 套件(35 项)+ 语言包完整性(5 项)+ 站点构建检查(13 项)
+npm test                                  # Node API 套件(36 项)+ 语言包完整性(5 项)+ 站点构建检查(13 项)
 SKILLS_LINGO_TEST_IMPL=rust npm test      # 同一 API 套件跑 Rust 实现(白盒测试跳过)
 ```
 

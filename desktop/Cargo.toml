@@ -1,6 +1,6 @@
 [package]
 name = "skills-lingo-desktop"
-version = "1.2.0"
+version = "1.2.1"
 description = "Skills 译站桌面版:多根扫描、lock 归属、中英对照学习(深蓝玻璃拟态)"
 authors = ["skills-lingo contributors"]
 license = "MIT"

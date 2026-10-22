@@ -1177,3 +1177,41 @@ test('27 手动预翻译目标 = 当前界面语言,只翻非该语言入口文�
     await closeServer(app.server);
   }
 });
+
+/* ---------- 28 暂不处理:待推断技能移入自由技能且不再自动推断 ---------- */
+
+test('28 暂不处理:overrides 空仓库 → 自由技能组,候选清空,后续分析不再推断', async () => {
+  const app = await startApp({ dataDir: path.join(TMP, 'data-snooze') });
+  try {
+    await runAnalysis(app.base);
+    const data0 = (await get(app.base, '/api/skills')).body;
+    const lonely = skillsByDir(data0, 'lonely')[0];
+    assert.ok(lonely.pendingInference, '前置:lonely 带待确认推断');
+
+    const llmBefore = ctx.llm.stats().calls;
+    const r = await post(app.base, '/api/overrides', { skillIds: [lonely.id], repo: '' });
+    assert.equal(r.status, 200);
+
+    const data1 = (await get(app.base, '/api/skills')).body;
+    const unknown1 = data1.groups.find((g) => g.key === '__unknown__');
+    assert.ok(unknown1, '自由技能组存在');
+    assert.equal(unknown1.name, '自由技能');
+    assert.equal(unknown1.nameKey, 'group.unknown');
+    assert.ok(
+      unknown1.subgroups.flatMap((s) => s.skills.map((x) => x.dirName)).includes('lonely'),
+      '暂不处理的技能进入自由技能组',
+    );
+    const lonely1 = skillsByDir(data1, 'lonely')[0];
+    assert.equal(lonely1.attribution.method, 'overrides');
+    assert.equal(lonely1.attribution.manual, true);
+    assert.equal(lonely1.attribution.repo, null);
+    assert.equal(lonely1.pendingInference, null, '推断候选已清除');
+
+    await runAnalysis(app.base);
+    assert.equal(ctx.llm.stats().calls, llmBefore, '后续分析不再对已暂不处理的技能发起推断');
+    const data2 = (await get(app.base, '/api/skills')).body;
+    assert.equal(skillsByDir(data2, 'lonely')[0].attribution.method, 'overrides', '暂不处理结果持久');
+  } finally {
+    await closeServer(app.server);
+  }
+});

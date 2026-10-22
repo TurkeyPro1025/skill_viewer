@@ -410,10 +410,11 @@ fn grouped_skills(app: &App, idx: &Value, lang: &str) -> Vec<Value> {
         .unwrap_or_default();
     let mut result: Vec<Value> = out.into_iter().map(|x| x.2).collect();
     if !unknown.is_empty() {
+        // 组名/简介带词条键:前端按界面语言渲染(中文「自由技能」/英文 "Standalone skills")
         result.push(json!({
             "key": "__unknown__",
             "repo": null,
-            "name": "未知来源",
+            "name": "自由技能",
             "nameKey": "group.unknown",
             "sourceUrl": null,
             "repoSummary": "未找到安装记录、git 远端或 frontmatter 来源的技能。可手动归组或配置 LLM 后推断。",

@@ -112,6 +112,100 @@ function toast(msg, isError) {
   toast._t = setTimeout(() => { el.hidden = true; }, 3400);
 }
 
+/* ============ 通用下拉组件(替代原生 select:展开列表同为玻璃风格、圆角) ============ */
+
+let languageDropdown = null;
+let repoDropdown = null;
+let presetDropdown = null;
+
+/**
+ * 创建下拉,返回 { el, setOptions([{value,label}]), setValue(v), getValue() }。
+ * onChange(value) 仅在用户点选后触发;程序 setValue 不触发。
+ * Esc 只收起下拉(不再向全局关闭链冒泡);点击组件外部自动收起。
+ */
+function createDropdown({ ariaLabel, placeholder = '', onChange } = {}) {
+  const root = document.createElement('div');
+  root.className = 'dropdown';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'dropdown-btn';
+  btn.setAttribute('aria-haspopup', 'listbox');
+  btn.setAttribute('aria-expanded', 'false');
+  if (ariaLabel) btn.setAttribute('aria-label', ariaLabel);
+  const label = document.createElement('span');
+  label.className = 'dropdown-label';
+  btn.appendChild(label);
+  const list = document.createElement('div');
+  list.className = 'dropdown-list';
+  list.setAttribute('role', 'listbox');
+  list.hidden = true;
+  root.append(btn, list);
+
+  let options = [];
+  let value = '';
+
+  const close = () => {
+    list.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    btn.classList.remove('open');
+  };
+  const open = () => {
+    list.innerHTML = '';
+    for (const o of options) {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'dropdown-item' + (o.value === value ? ' on' : '');
+      item.setAttribute('role', 'option');
+      item.textContent = o.label;
+      item.onclick = () => {
+        const changed = o.value !== value;
+        setValue(o.value);
+        close();
+        if (changed && onChange) onChange(o.value);
+      };
+      list.appendChild(item);
+    }
+    list.hidden = false;
+    btn.setAttribute('aria-expanded', 'true');
+    btn.classList.add('open');
+  };
+
+  btn.onclick = () => (list.hidden ? open() : close());
+  btn.onkeydown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (list.hidden) open();
+      const items = [...list.querySelectorAll('.dropdown-item')];
+      (e.key === 'ArrowDown' ? items[0] : items[items.length - 1])?.focus();
+    }
+  };
+  // capture:焦点在列表项上也能命中;stopPropagation 防止 Esc 同时触发外层(弹窗/查看器)关闭
+  root.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      close();
+      btn.focus();
+      e.stopPropagation();
+    }
+  }, true);
+  document.addEventListener('click', (e) => { if (!root.contains(e.target)) close(); });
+
+  function setValue(v) {
+    value = v;
+    const hit = options.find((o) => o.value === v);
+    label.textContent = hit ? hit.label : placeholder;
+    btn.classList.toggle('placeholder', !hit);
+  }
+  return {
+    el: root,
+    setOptions(next) {
+      options = next || [];
+      setValue(options.some((o) => o.value === value) ? value : '');
+    },
+    setValue,
+    getValue: () => value,
+  };
+}
+
 /* ============ 外观(密度;主题固定浅色,仅本机 localStorage) ============ */
 const APPEARANCE_KEY = 'skills-lingo:appearance';
 
@@ -149,14 +243,14 @@ function syncLanguageToServer() {
 }
 
 function initLanguageSelect() {
-  const sel = $('topbar-language');
-  if (!sel) return;
+  const host = $('topbar-language');
+  if (!host) return;
   const languages = (I18N.pack?.languages || []).filter((l) => l && l.code && I18N.pack[l.code]);
-  sel.innerHTML = languages
-    .map((l) => `<option value="${esc(l.code)}">${esc(l.label || l.code)}</option>`)
-    .join('');
-  sel.value = I18N.lang;
-  sel.addEventListener('change', () => changeLanguage(sel.value));
+  languageDropdown = createDropdown({ ariaLabel: t('topbar.languageAria'), onChange: (code) => changeLanguage(code) });
+  languageDropdown.setOptions(languages.map((l) => ({ value: l.code, label: l.label || l.code })));
+  languageDropdown.setValue(I18N.lang);
+  languageDropdown.el.title = t('topbar.languageTitle');
+  host.appendChild(languageDropdown.el);
 }
 
 /** 语言切换 = 保存偏好 → 整页刷新一次(PRD 决策;无刷新热切换留待将来) */
@@ -221,24 +315,39 @@ async function boot() {
     clearTimeout(resizeT);
     resizeT = setTimeout(() => { if (S.data) renderGroups(); }, 150);
   });
-  // 读数条「待确认推断」:直达整理归属,展开低置信度折叠区
-  $('st-infer').addEventListener('click', () => {
-    if (!S.selectMode) toggleSelectMode(true);
-    document.querySelectorAll('details.subgroup.lowconf').forEach((d) => { d.open = true; });
-    document.querySelector('details.subgroup.lowconf')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  // 整理模式的目标仓库下拉(仅列已有仓库;选项随数据刷新)
+  repoDropdown = createDropdown({
+    ariaLabel: t('selection.repoAria'),
+    onChange: () => { $('btn-assign').disabled = !repoDropdown.getValue(); },
   });
+  $('repo-select').appendChild(repoDropdown.el);
+  // 设置页 LLM 预设下拉(选项在打开设置时按服务端下发填充)
+  presetDropdown = createDropdown({
+    ariaLabel: t('settings.preset'),
+    onChange: () => applyPresetSelection(true),
+  });
+  $('llm-preset').appendChild(presetDropdown.el);
+  // 读数条「待确认推断」:进入整理模式并跳转到第一个待推断卡片
+  $('st-infer').addEventListener('click', jumpToPendingCard);
 
   $('search').addEventListener('input', (e) => { S.q = e.target.value.trim(); renderGroups(); });
   $('btn-update').addEventListener('click', manualUpdate);
   $('btn-organize').addEventListener('click', toggleSelectMode);
   $('btn-info').addEventListener('click', toggleInfo);
   $('btn-cancel-select').addEventListener('click', () => toggleSelectMode(false));
-  $('btn-assign').addEventListener('click', () => assignSelection($('repo-select').value));
-  $('repo-select').addEventListener('change', () => { $('btn-assign').disabled = !$('repo-select').value; });
+  $('btn-assign').addEventListener('click', () => assignSelection(repoDropdown.getValue()));
   // 模型选择器(可搜索下拉:纯选择,不允许可自由输入)
   initModelPicker();
   $('btn-unknown').addEventListener('click', () => assignSelection(''));
   $('btn-confirm').addEventListener('click', confirmInference);
+  $('btn-snooze').addEventListener('click', () => {
+    const ids = pendingSelectionIds();
+    if (!ids.length) return;
+    $('snooze-count').textContent = ids.length;
+    $('snooze-modal').hidden = false;
+  });
+  $('snooze-cancel').addEventListener('click', () => { $('snooze-modal').hidden = true; });
+  $('snooze-confirm').addEventListener('click', () => { $('snooze-modal').hidden = true; executeSnooze(); });
   $('viewer-close').addEventListener('click', closeViewer);
   $('consent-cancel').addEventListener('click', () => hideConsent(false));
   $('consent-accept').addEventListener('click', () => hideConsent(true));
@@ -249,7 +358,6 @@ async function boot() {
   $('btn-settings').addEventListener('click', openSettings);
   $('settings-close').addEventListener('click', () => { $('settings-modal').hidden = true; });
   $('settings-save').addEventListener('click', saveSettings);
-  $('llm-preset').addEventListener('change', () => applyPresetSelection(true));
   $('btn-test-translate').addEventListener('click', () => testTranslateFromUI(false));
   $('btn-test-translate-full').addEventListener('click', () => testTranslateFromUI(true));
   $('btn-test-llm').addEventListener('click', testLlmFromUI);
@@ -552,6 +660,8 @@ function fitRootBadges(badgesEl) {
 function cardEl(card) {
   const el = document.createElement('div');
   el.className = 'card' + (S.selectMode ? ' selecting' : '') + (S.selection.has(card.id) ? ' selected' : '');
+  // 待确认推断标记:读数条「待确认推断」点击后跳转到第一个此类卡片
+  if (card.pendingInference || isLowConfidence(card)) el.dataset.pending = '1';
 
   const badges = [];
   const roots = card.roots || [];
@@ -625,6 +735,22 @@ function confidenceLabel(c) {
 }
 
 /* ============ 整理归属(多选 + overrides) ============ */
+
+/** 读数条「待确认推断」:进整理模式 → 展开低置信度折叠区 → 滚动到第一个待推断卡片 */
+function jumpToPendingCard() {
+  if (!S.selectMode) toggleSelectMode(true);
+  // 筛选/搜索可能把待推断卡片滤掉:先清条件保证可达
+  if (S.q || S.cat) {
+    S.q = '';
+    S.cat = null;
+    $('search').value = '';
+    renderCategories();
+    renderGroups();
+  }
+  document.querySelectorAll('details.subgroup.lowconf').forEach((d) => { d.open = true; });
+  document.querySelector('#groups .card[data-pending]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
 function toggleSelectMode(force) {
   S.selectMode = typeof force === 'boolean' ? force : !S.selectMode;
   if (!S.selectMode) S.selection.clear();
@@ -640,33 +766,35 @@ function renderSelectionBar() {
   const bar = $('selection-bar');
   bar.hidden = !S.selectMode;
   $('selection-count').textContent = t('selection.count', { n: S.selection.size });
-  const sel = $('repo-select');
   const repos = (S.data?.groups || []).filter((g) => g.key !== '__unknown__').map((g) => g.repo);
-  sel.innerHTML = `<option value="">${esc(t('selection.repoPlaceholder'))}</option>` +
-    repos.map((r) => `<option value="${esc(r)}">${esc(r)}</option>`).join('') +
-    `<option value="__custom__">${esc(t('selection.customRepo'))}</option>`;
-  $('btn-assign').disabled = !sel.value; // 未选目标仓库时置灰
-  const hasInfer = [...S.selection].some((id) => {
+  repoDropdown.setOptions([
+    { value: '', label: t('selection.repoPlaceholder') },
+    ...repos.map((r) => ({ value: r, label: r })),
+  ]);
+  $('btn-assign').disabled = !repoDropdown.getValue(); // 未选目标仓库时置灰
+  const pendingIds = pendingSelectionIds();
+  const hasInfer = pendingIds.length > 0;
+  $('btn-confirm').style.display = hasInfer ? '' : 'none';
+  $('btn-snooze').style.display = hasInfer ? '' : 'none';
+}
+
+/** 选中集合里待确认推断(低置信度已推断或带候选)的卡片 id */
+function pendingSelectionIds() {
+  return [...S.selection].filter((id) => {
     const c = (S.data?.skills || []).find((x) => x.id === id);
     return (c?.attribution?.inferred && !c.attribution.confirmed) || c?.pendingInference;
   });
-  $('btn-confirm').style.display = hasInfer ? '' : 'none';
 }
 
 async function assignSelection(repo) {
   if (!S.selection.size) return toast(t('toast.selectFirst'), true);
-  let target = repo;
-  if (repo === '__custom__') {
-    target = window.prompt(t('selection.customPrompt'), '');
-    if (target === null) return;
-    target = target.trim();
-  } else if (!repo) {
-    // 移入未知来源:自定义确认弹窗(选中数量在打开时填充,确认后执行 executeAssign)
+  if (!repo) {
+    // 移入自由技能:自定义确认弹窗(选中数量在打开时填充,确认后执行 executeAssign)
     $('unknown-count').textContent = S.selection.size;
     $('unknown-modal').hidden = false;
     return;
   }
-  return executeAssign(target);
+  return executeAssign(repo);
 }
 
 async function executeAssign(target) {
@@ -699,6 +827,30 @@ async function confirmInference() {
     await refreshData();
   } catch (err) {
     toast(t('toast.confirmFailed', { message: errText(err) }), true);
+  }
+}
+
+/**
+ * 暂不处理:仅对待确认推断的选中卡片写入 overrides(repo='')——移入自由技能,
+ * 且分析器对有 overrides 的技能跳过 LLM 推断、不再保留推断候选。
+ */
+async function executeSnooze() {
+  const ids = pendingSelectionIds();
+  if (!ids.length) return;
+  try {
+    await api('/api/overrides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ skillIds: ids, repo: '', lang: I18N.lang }),
+    });
+    toast(t('toast.snoozed'));
+    // 只清这部分;其余选中保留(用户可能还想继续归组其他卡片)
+    ids.forEach((id) => S.selection.delete(id));
+    renderSelectionBar();
+    renderGroups();
+    await refreshData();
+  } catch (err) {
+    toast(t('toast.assignFailed', { message: errText(err) }), true);
   }
 }
 
@@ -1085,9 +1237,8 @@ async function loadSettingsState() {
     : t('settings.enterKey');
   $('btn-clear-translate').hidden = st.translate.source !== 'store';
 
-  const sel = $('llm-preset');
-  sel.innerHTML = st.presets.map((p) => `<option value="${esc(p.id)}">${esc(presetLabel(p))}</option>`).join('');
-  sel.value = st.llm.preset || 'custom';
+  presetDropdown.setOptions(st.presets.map((p) => ({ value: p.id, label: presetLabel(p) })));
+  presetDropdown.setValue(st.llm.preset || 'custom');
 
   const bu = $('llm-baseurl');
   bu.value = st.llm.baseUrl || '';
@@ -1117,7 +1268,7 @@ function presetLabel(preset) {
 
 /** 当前服务商标识:同一服务商的拉取结果互通,跨服务商互不混入 */
 function providerKey() {
-  return `${$('llm-preset').value}|${$('llm-baseurl').value.trim()}`;
+  return `${presetDropdown.getValue()}|${$('llm-baseurl').value.trim()}`;
 }
 
 /** 当前候选:该服务商「测试连通」拉取过 → 整体替换为拉取结果;否则 = 已保存模型 + 预设自带 */
@@ -1133,7 +1284,7 @@ function currentCandidates() {
     if (id && !items.some((x) => x.id === id)) items.push({ id, name: name || null });
   };
   push(S.savedModelId); // 已保存模型排最前,保证「记忆默认值」始终可选
-  (presetOf($('llm-preset').value)?.models || []).forEach((m) => push(m));
+  (presetOf(presetDropdown.getValue())?.models || []).forEach((m) => push(m));
   return items;
 }
 
@@ -1154,7 +1305,7 @@ function refreshModelOptions() {
 }
 
 function applyPresetSelection(fromUser) {
-  const p = presetOf($('llm-preset').value);
+  const p = presetOf(presetDropdown.getValue());
   const bu = $('llm-baseurl');
   bu.readOnly = false; // 预设也开放修改(如自建中转站换地址)
   if (p && p.id !== 'custom') {
@@ -1250,7 +1401,7 @@ async function saveDesktopSettings() {
 }
 
 function currentLlmFields() {
-  const presetId = $('llm-preset').value;
+  const presetId = presetDropdown.getValue();
   const p = presetOf(presetId);
   return {
     preset: presetId,
@@ -1479,6 +1630,7 @@ document.addEventListener('keydown', (e) => {
     if (!$('consent-modal').hidden) hideConsent(false);
     else if (!$('revoke-modal').hidden) $('revoke-modal').hidden = true;
     else if (!$('unknown-modal').hidden) $('unknown-modal').hidden = true;
+    else if (!$('snooze-modal').hidden) $('snooze-modal').hidden = true;
     else if (!$('settings-modal').hidden) $('settings-modal').hidden = true;
     else if (!$('viewer').hidden) closeViewer();
     else if (!$('info-popover').hidden) $('info-popover').hidden = true;

@@ -44,6 +44,9 @@
 
   --neutral-soft: rgba(148, 163, 184, 0.12);
 
+  /* 原生下拉自绘箭头(替代系统默认外观;选项弹层由系统渲染) */
+  --select-caret: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1.5 1.5 5 5l3.5-3.5' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
   --dst-bg: rgba(148, 163, 184, 0.07);   /* 译文栏衬底 */
   --code-bg: rgba(148, 163, 184, 0.13);  /* 行内代码 */
   --modal-bg: rgba(15, 23, 42, 0.92);    /* 弹窗/气泡:高不透明,保证内容可读 */
@@ -98,6 +101,9 @@
   --danger-soft: rgba(239, 68, 68, 0.1);
   --violet: #7c3aed;
   --violet-soft: rgba(139, 92, 246, 0.13);
+
+  /* 原生下拉自绘箭头(浅色主题配浅色箭头) */
+  --select-caret: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1.5 1.5 5 5l3.5-3.5' fill='none' stroke='%2364748b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 
   --neutral-soft: rgba(23, 35, 58, 0.06);
 
@@ -248,7 +254,74 @@ body::before {
   box-shadow: 0 0 0 3px var(--accent-soft), 0 0 18px var(--accent-glow);
 }
 
-/* 界面语言选择(顶栏):玻璃胶囊,只列已就绪语言 */
+/* ---------- 通用下拉组件(替代原生 select:闭合按钮 + 玻璃展开列表) ---------- */
+.dropdown, .dropdown-slot { position: relative; display: inline-flex; min-width: 0; }
+.dropdown-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 7px 30px 7px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  font: 13px var(--font-ui);
+  background: var(--input-bg);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dropdown-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dropdown-btn::after {
+  content: '';
+  flex: none;
+  width: 10px;
+  height: 6px;
+  background: var(--select-caret) no-repeat center / contain;
+  transition: transform 0.15s;
+}
+.dropdown-btn.open::after { transform: rotate(180deg); }
+.dropdown-btn:hover, .dropdown-btn.open { border-color: var(--accent); }
+.dropdown-btn.placeholder { color: var(--ink-3); }
+.dropdown-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.dropdown-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  z-index: 60;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--modal-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-pop);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(150%);
+  backdrop-filter: blur(var(--blur)) saturate(150%);
+  padding: 4px;
+}
+.dropdown-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font: 13px var(--font-ui);
+  color: var(--ink);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dropdown-item:hover, .dropdown-item:focus-visible { background: var(--accent-soft); outline: none; }
+.dropdown-item.on { color: var(--accent-ink); font-weight: 600; }
+
+/* 界面语言选择(顶栏):玻璃胶囊,只列已就绪语言;下拉按钮透明融入胶囊 */
 .language-picker {
   display: inline-flex;
   align-items: center;
@@ -265,16 +338,23 @@ body::before {
   color: var(--ink-3);
   user-select: none;
 }
-.language-picker select {
-  border: 0;
+.language-picker .dropdown-btn {
+  padding: 3px 16px 3px 4px;
+  border-color: transparent;
+  border-radius: 999px;
   background: transparent;
-  color: var(--ink);
-  font: 12px var(--font-ui);
-  padding: 3px 2px;
-  outline: none;
-  cursor: pointer;
+  font-size: 12px;
 }
-.language-picker select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.language-picker .dropdown-btn:hover,
+.language-picker .dropdown-btn.open {
+  border-color: transparent;
+  background: var(--neutral-soft);
+}
+.language-picker .dropdown-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
 
 /* 显示密度单选(设置页):玻璃胶囊,选中项主题蓝 */
 .density-toggle {
@@ -441,15 +521,7 @@ body::before {
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
-.selection-bar select {
-  padding: 7px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--card-solid);
-  color: var(--ink);
-  font: 13px var(--font-ui);
-  max-width: 320px;
-}
+.selection-bar .dropdown-btn { max-width: 320px; }
 
 /* ---------- 分组与卡片 ---------- */
 .group { margin-bottom: 24px; }
@@ -925,7 +997,7 @@ body::before {
 .field-row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
 /* 只作用于字段标题;密度胶囊内的选项 label 有独立样式 */
 .field-row > label { flex: 0 0 68px; color: var(--ink); font-size: 12.5px; font-weight: 600; }
-.field-row input:not([type="radio"]), .field-row select {
+.field-row input:not([type="radio"]) {
   flex: 1;
   min-width: 0;
   padding: 7px 10px;
@@ -936,13 +1008,15 @@ body::before {
   color: var(--ink);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
-.field-row input:not([type="radio"]):focus, .field-row select:focus {
+.field-row input:not([type="radio"]):focus {
   border-color: var(--accent);
   outline: none;
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .field-row input[readonly] { background: var(--neutral-soft); color: var(--ink-2); }
-.field-row input::placeholder, .field-row select:invalid { color: var(--ink-3); }
+.field-row input::placeholder { color: var(--ink-3); }
+.field-row .dropdown-slot { flex: 1; }
+.field-row .dropdown-btn { width: 100%; }
 
 /* 模型选择器:可搜索下拉(纯选择)。列表高不透明,长列表滚动 */
 .model-picker { position: relative; flex: 1; min-width: 0; }

@@ -41,7 +41,7 @@
         <button id="btn-info" class="btn btn-ghost" title="隐私说明 / provider 状态 / 积分" data-i18n-title="topbar.infoTitle">ⓘ</button>
         <div class="language-picker">
           <span class="language-picker-label" data-i18n="topbar.language">语言</span>
-          <select id="topbar-language" aria-label="界面语言" data-i18n-aria-label="topbar.languageAria" title="界面语言（同时决定译文目标语言）" data-i18n-title="topbar.languageTitle"></select>
+          <div id="topbar-language"></div>
         </div>
       </div>
       <div id="progress-wrap" class="progress-wrap" hidden>
@@ -50,10 +50,11 @@
       </div>
       <div id="selection-bar" class="selection-bar" hidden>
         <span id="selection-count"></span>
-        <select id="repo-select"></select>
+        <div id="repo-select" class="dropdown-slot"></div>
         <button id="btn-assign" class="btn btn-primary" data-i18n="selection.assign">归入选中仓库</button>
-        <button id="btn-unknown" class="btn" data-i18n="selection.unknown">移入未知来源</button>
+        <button id="btn-unknown" class="btn" data-i18n="selection.unknown">移入自由技能</button>
         <button id="btn-confirm" class="btn" data-i18n="selection.confirm">确认推断</button>
+        <button id="btn-snooze" class="btn" data-i18n="selection.snooze">暂不处理</button>
         <button id="btn-cancel-select" class="btn btn-ghost" data-i18n="selection.cancel">取消</button>
       </div>
     </header>
@@ -128,14 +129,26 @@
     </div>
   </div>
 
-  <!-- 移入未知来源确认弹窗(与隐私同意弹窗同款样式) -->
+  <!-- 移入自由技能确认弹窗(与隐私同意弹窗同款样式) -->
   <div id="unknown-modal" class="modal" hidden>
     <div class="modal-card">
-      <h2 data-i18n="unknown.title">移入「未知来源」？</h2>
-      <p><span data-i18n="unknown.before">将把选中的</span> <strong id="unknown-count">0</strong> <span data-i18n="unknown.after">个技能的仓库归属清除为未知来源；归属错误也随时可在「整理归属」中重新归组。</span></p>
+      <h2 data-i18n="unknown.title">移入「自由技能」？</h2>
+      <p><span data-i18n="unknown.before">将把选中的</span> <strong id="unknown-count">0</strong> <span data-i18n="unknown.after">个技能的仓库归属清除为自由技能；归属错误也随时可在「整理归属」中重新归组。</span></p>
       <div class="modal-actions">
         <button id="unknown-confirm" class="btn btn-primary" data-i18n="unknown.confirm">确认移入</button>
         <button id="unknown-cancel" class="btn" data-i18n="unknown.cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 暂不处理待确认推断弹窗(与隐私同意弹窗同款样式) -->
+  <div id="snooze-modal" class="modal" hidden>
+    <div class="modal-card">
+      <h2 data-i18n="snooze.title">暂不处理这些推断？</h2>
+      <p><span data-i18n="snooze.before">将把选中的</span> <strong id="snooze-count">0</strong> <span data-i18n="snooze.after">个待确认推断的技能移入「自由技能」，后续不再对它们自动推断归类；之后仍可随时手动归组。</span></p>
+      <div class="modal-actions">
+        <button id="snooze-confirm" class="btn btn-primary" data-i18n="snooze.confirm">暂不处理</button>
+        <button id="snooze-cancel" class="btn" data-i18n="snooze.cancel">取消</button>
       </div>
     </div>
   </div>
@@ -177,8 +190,8 @@
         <h3 data-i18n="settings.llmSection">LLM 服务（中文概述 + 归属推断）</h3>
         <p class="section-hint" data-i18n="settings.llmHint">没有 key？在所选服务商官网注册（DeepSeek / 智谱开放平台），粘贴到下方即可。</p>
         <div class="field-row">
-          <label for="llm-preset" data-i18n="settings.preset">预设</label>
-          <select id="llm-preset"></select>
+          <label data-i18n="settings.preset">预设</label>
+          <div id="llm-preset" class="dropdown-slot"></div>
         </div>
         <div class="field-row">
           <label for="llm-baseurl" data-i18n="settings.baseUrl">API 地址</label>
