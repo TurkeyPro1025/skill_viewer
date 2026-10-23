@@ -2,12 +2,11 @@
 
 **English** | [中文](README.zh-CN.md)
 
-[![CI](https://github.com/TurkeyPro1025/skills-lingo/actions/workflows/ci.yml/badge.svg)](https://github.com/TurkeyPro1025/skills-lingo/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/TurkeyPro1025/skills-lingo)](https://github.com/TurkeyPro1025/skills-lingo/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web-lightgrey)](#install)
 
-> Skills Lingo (Skills 译站) turns the dozens of skills installed by the skills CLI into a local knowledge base organized by **repository → sub-skill** — built around the shared `.agents` directory and 30+ agent tools — with bilingual (English ↔ Chinese) reading section by section. When you don't know which skill to call, summaries and category filters help you choose. It only reads skill directories — it never installs or uninstalls anything.
+> Skills Lingo turns the dozens of skills installed by the skills CLI into a local knowledge base organized by **repository → sub-skill** — built around the shared `.agents` directory and 30+ agent tools — with bilingual (English ↔ Chinese) reading section by section. When you don't know which skill to call, summaries and category filters help you choose. It only reads skill directories — it never installs or uninstalls anything.
 
 ![Skills Lingo interface (demo data)](docs/screenshot.png)
 

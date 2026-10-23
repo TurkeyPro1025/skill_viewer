@@ -2,14 +2,13 @@
 
 [English](README.md) | **中文**
 
-[![CI](https://github.com/TurkeyPro1025/skills-lingo/actions/workflows/ci.yml/badge.svg)](https://github.com/TurkeyPro1025/skills-lingo/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/TurkeyPro1025/skills-lingo)](https://github.com/TurkeyPro1025/skills-lingo/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web-lightgrey)](#安装与使用)
 
 > 把 skills CLI 装进 `.agents` 等技能目录的几十个技能整理成“**仓库 → 子技能**”的本地知识库，以共享的 `.agents` 目录为主、支持 30+ Agent 工具，并把英文文档译成中文逐段对照——边读边学；不知道该调用哪个时，中文概述与分类筛选帮你快速选对。只读技能目录，不安装、不卸载。
 
-![Skills 译站界面（演示数据）](docs/screenshot.png)
+![Skills 译站界面（演示数据）](docs/screenshot-zh.png)
 
 ## 它解决什么问题
 
