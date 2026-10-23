@@ -719,12 +719,30 @@ test('15 连通测试:LLM models 探测、翻译免费探针与完整测试', as
   const ok = await post(ctx.base, '/api/settings/test/llm', {});
   assert.equal(ok.status, 200);
   assert.equal(ok.body.ok, true);
-  assert.ok(ok.body.models.some((m) => m.id === 'stub-model' && m.name === 'Stub Model'), '返回模型列表(id+name)');
+  assert.ok(Array.isArray(ok.body.models), '返回模型列表');
+  assert.ok(ok.body.models.every((m) => typeof m === 'string' && m), '模型统一只用 id 字符串');
+  assert.ok(ok.body.models.includes('stub-model'));
   assert.ok(ok.body.latencyMs >= 0);
+  // 测试通过 → 拉到的模型列表按服务商(preset|baseUrl)落盘缓存
+  const providerKey = `custom|http://127.0.0.1:${ctx.llmPort}/v1`;
+  const stAfter = (await get(ctx.base, '/api/settings')).body;
+  assert.deepEqual(stAfter.llm.modelsCache[providerKey], ok.body.models, '测试成功后模型列表按服务商缓存');
+  // 模拟重启:新实例读同一 dataDir,缓存仍在(候选不再回落到预设旧列表)
+  const rebooted = await startApp({ dataDir: DATA, llmEnv: false, translateEnv: false });
+  try {
+    const stReboot = (await get(rebooted.base, '/api/settings')).body;
+    assert.deepEqual(stReboot.llm.modelsCache[providerKey], ok.body.models, '重启后模型缓存仍在');
+  } finally {
+    await closeServer(rebooted.server);
+  }
 
   const bad = await post(ctx.base, '/api/settings/test/llm', { apiKey: 'wrong-key' });
   assert.equal(bad.body.ok, false, '坏 key 应失败');
   assert.match(bad.body.error, /鉴权失败/);
+  assert.deepEqual(
+    (await get(ctx.base, '/api/settings')).body.llm.modelsCache[providerKey],
+    ok.body.models,
+    '失败的测试不写缓存');
 
   // 翻译免费探针:可达 + keyAccepted(env 的 stub-key 仍生效)
   const probe = await post(ctx.base, '/api/settings/test/translate', {});

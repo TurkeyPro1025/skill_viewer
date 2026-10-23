@@ -29,21 +29,14 @@ pub async fn test_llm(base_url: &str, api_key: &str, model: &str) -> Value {
             let status = res.status().as_u16();
             if (200..300).contains(&status) {
                 let body: Value = res.json().await.unwrap_or(Value::Null);
-                let models: Vec<Value> = body
+                let models: Vec<String> = body
                     .get("data")
                     .and_then(|v| v.as_array())
                     .map(|a| {
                         a.iter()
                             .filter_map(|m| {
-                                let id = m.get("id").and_then(|x| x.as_str())?;
-                                if id.is_empty() {
-                                    return None;
-                                }
-                                let name = m.get("name").and_then(|x| x.as_str());
-                                Some(json!({
-                                    "id": id,
-                                    "name": match name { Some(n) if !n.is_empty() => json!(n), _ => Value::Null },
-                                }))
+                                let id = m.get("id")?.as_str()?.trim().to_string();
+                                if id.is_empty() { None } else { Some(id) }
                             })
                             .collect()
                     })

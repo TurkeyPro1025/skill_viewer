@@ -27,6 +27,7 @@ impl ProviderSettings {
             l.entry("preset").or_insert(Value::Null);
             l.entry("baseUrl").or_insert(json!(""));
             l.entry("model").or_insert(json!(""));
+            l.entry("modelsCache").or_insert_with(|| json!({}));
         }
         Self { file, data: RwLock::new(data) }
     }
@@ -45,6 +46,19 @@ impl ProviderSettings {
                         obj.insert(k.to_string(), v.clone());
                     }
                 }
+            }
+        }
+        let _ = write_json_atomic(&self.file, &data);
+    }
+
+    /// 连通性测试拉到的模型列表按服务商(preset|baseUrl)落盘,重启后候选仍以实测为准。
+    /// 文件结构与 Node providerSettings.js updateModelsCache 完全一致。
+    pub async fn update_models_cache(&self, provider_key: &str, models: Vec<String>) {
+        let mut data = self.data.write().await;
+        if let Some(llm) = data.get_mut("llm").and_then(|v| v.as_object_mut()) {
+            let cache = llm.entry("modelsCache").or_insert_with(|| json!({}));
+            if let Some(c) = cache.as_object_mut() {
+                c.insert(provider_key.to_string(), json!(models));
             }
         }
         let _ = write_json_atomic(&self.file, &data);

@@ -828,6 +828,7 @@ async fn settings_state(app: &App) -> Value {
             "preset": llm_saved.get("preset").cloned().unwrap_or(Value::Null),
             "baseUrl": llm_saved.get("baseUrl").cloned().unwrap_or(json!("")),
             "model": llm_saved.get("model").cloned().unwrap_or(json!("")),
+            "modelsCache": llm_saved.get("modelsCache").cloned().unwrap_or(json!({})),
         },
         "credentialStoreKind": app.creds.kind().await,
         "language": app.ui_language(),
@@ -990,7 +991,25 @@ async fn settings_test_llm(axum::extract::State(app): axum::extract::State<Arc<A
     if base_url.is_empty() {
         return err_json("bad_request", "缺少 API 地址(选择预设或填写自定义地址)", None, StatusCode::BAD_REQUEST);
     }
-    Json(crate::connectivity::test_llm(&base_url, &api_key, &model).await).into_response()
+    let result = crate::connectivity::test_llm(&base_url, &api_key, &model).await;
+    // 测试通过且拿到模型列表 → 按服务商落盘缓存(与 Node api.js llmProviderKey 同构):重启后候选仍以实测为准
+    if result.get("ok").and_then(|v| v.as_bool()) == Some(true) {
+        let models: Vec<String> = result
+            .get("models")
+            .and_then(|v| v.as_array())
+            .map(|a| a.iter().filter_map(|m| m.as_str().map(String::from)).collect())
+            .unwrap_or_default();
+        if !models.is_empty() {
+            let preset_id = preset
+                .as_ref()
+                .and_then(|p| p.get("id").and_then(|v| v.as_str()))
+                .unwrap_or("custom");
+            app.providers
+                .update_models_cache(&format!("{preset_id}|{base_url}"), models)
+                .await;
+        }
+    }
+    Json(result).into_response()
 }
 
 async fn settings_test_translate(axum::extract::State(app): axum::extract::State<Arc<App>>, body: Bytes) -> Response {
