@@ -1083,6 +1083,17 @@ body::before {
 .model-picker-item:hover { background: var(--neutral-soft); }
 .model-picker-item.on { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
 .model-picker-empty { padding: 10px 12px; font-size: 12px; color: var(--ink-3); }
+/* 展开时 portal 到 body(见 app.js openFloat):fixed 定位脱离设置卡片的滚动区,
+   列表再长也不会撑出卡片滚动条/挤压内容。z-index 需高于 .modal(200)。 */
+.dropdown-list.floating,
+.model-picker-list.floating {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: auto;
+  min-width: 0; /* 覆盖 .dropdown-list 的 min-width:100%(fixed 下会按视口计算) */
+  z-index: 260;
+}
 .field-actions { display: flex; gap: 8px; margin: 8px 0 4px; flex-wrap: wrap; }
 .status-line { min-height: 20px; font-size: 12.5px; color: var(--ink-2); }
 .status-line.ok { color: var(--ok); }

@@ -187,7 +187,7 @@
       </section>
 
       <section class="settings-section">
-        <h3 data-i18n="settings.llmSection">LLM 服务（中文概述 + 归属推断）</h3>
+        <h3 data-i18n="settings.llmSection">LLM 配置</h3>
         <p class="section-hint" data-i18n="settings.llmHint">没有 key？在所选服务商官网注册（DeepSeek / 智谱开放平台），粘贴到下方即可。</p>
         <div class="field-row">
           <label data-i18n="settings.preset">预设</label>
@@ -210,7 +210,7 @@
           <label for="llm-model-search" data-i18n="settings.model">模型</label>
           <div class="model-picker" id="llm-model-picker">
             <input id="llm-model-search" type="text" autocomplete="off" spellcheck="false" placeholder="无可用模型：先「测试连通」拉取，或输入关键字筛选" data-i18n-placeholder="settings.modelSearchPlaceholder">
-            <div class="model-picker-list" hidden></div>
+            <div class="model-picker-list" id="llm-model-list" hidden></div>
           </div>
         </div>
       </section>

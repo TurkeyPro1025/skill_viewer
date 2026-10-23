@@ -112,6 +112,81 @@ function toast(msg, isError) {
   toast._t = setTimeout(() => { el.hidden = true; }, 3400);
 }
 
+/* ============ 浮层定位(通用下拉 / 模型候选列表) ============ */
+/* 设置卡片是 overflow-y:auto 的滚动容器:absolute 后代即使脱离文档流,仍会计入它的
+   scrollable overflow —— 列表向下展开足以撑出纵向滚动条,客户区变窄,整卡内容横向回流。
+   而 .modal / .modal-card 的 backdrop-filter 会让卡片成为 fixed 后代的包含块,留在原地
+   改 fixed 也无效。故展开时把列表 portal 到 body,按锚点的视口坐标定位,
+   任意滚动 / 缩放时跟随;锚点滚出视口即收起。 */
+const FLOAT_GAP = 4;
+const FLOAT_MAX = 240;
+const FLOAT_EDGE = 8;
+const floatLayers = [];
+
+/** 依锚点重算位置;返回 false 表示锚点已不可见,调用方应关闭浮层 */
+function placeFloat(layer) {
+  const { list, anchor, stretch } = layer;
+  if (list.hidden) return true;
+  const r = anchor.getBoundingClientRect();
+  if (!r.width && !r.height) return false; // 锚点已隐藏(弹窗关闭等)
+  const vw = document.documentElement.clientWidth;
+  const vh = window.innerHeight;
+  if (r.bottom < 0 || r.top > vh) return false;
+
+  let width;
+  if (stretch) {
+    width = Math.min(r.width, vw - FLOAT_EDGE * 2);
+    list.style.width = `${width}px`;
+  } else {
+    list.style.width = 'max-content';
+    list.style.minWidth = `${Math.min(r.width, vw - FLOAT_EDGE * 2)}px`; // 不窄于触发按钮
+    list.style.maxWidth = `${vw - FLOAT_EDGE * 2}px`;
+    width = Math.min(list.offsetWidth, vw - FLOAT_EDGE * 2);
+  }
+  const natural = Math.min(list.scrollHeight, FLOAT_MAX);
+  const below = vh - r.bottom - FLOAT_GAP - FLOAT_EDGE;
+  const above = r.top - FLOAT_GAP - FLOAT_EDGE;
+  const up = natural > below && above > below; // 下方放不下且上方更宽裕 → 向上翻
+  const height = Math.max(Math.min(natural, up ? above : below), 0);
+  list.style.maxHeight = `${height}px`;
+  const left = Math.min(Math.max(r.left, FLOAT_EDGE), Math.max(vw - width - FLOAT_EDGE, FLOAT_EDGE));
+  list.style.left = `${left}px`;
+  list.style.top = `${up ? r.top - FLOAT_GAP - height : r.bottom + FLOAT_GAP}px`;
+  return true;
+}
+
+/** 展开浮层:首次调用时搬到 body;close 用于滚动/缩放时锚点消失后收起 */
+function openFloat(list, anchor, close, { stretch = false } = {}) {
+  list.hidden = false;
+  list.classList.add('floating');
+  if (list.parentElement !== document.body) document.body.appendChild(list);
+  let layer = floatLayers.find((l) => l.list === list);
+  if (layer) {
+    Object.assign(layer, { anchor, close, stretch });
+  } else {
+    layer = { list, anchor, close, stretch };
+    floatLayers.push(layer);
+  }
+  if (!placeFloat(layer)) close();
+}
+
+function closeFloat(list) {
+  const i = floatLayers.findIndex((l) => l.list === list);
+  if (i >= 0) floatLayers.splice(i, 1);
+  list.hidden = true;
+}
+
+/** 收起全部浮层;返回是否确实收起了(供 Esc 决定是否继续关闭弹窗) */
+function closeAllFloats() {
+  const layers = floatLayers.splice(0, floatLayers.length);
+  layers.forEach((l) => l.close());
+  return layers.length > 0;
+}
+
+const repositionFloats = () => { [...floatLayers].forEach((l) => { if (!placeFloat(l)) l.close(); }); };
+window.addEventListener('resize', repositionFloats);
+document.addEventListener('scroll', repositionFloats, true); // capture:卡片内滚动的 scroll 不冒泡
+
 /* ============ 通用下拉组件(替代原生 select:展开列表同为玻璃风格、圆角) ============ */
 
 let languageDropdown = null;
@@ -145,7 +220,7 @@ function createDropdown({ ariaLabel, placeholder = '', onChange } = {}) {
   let value = '';
 
   const close = () => {
-    list.hidden = true;
+    closeFloat(list);
     btn.setAttribute('aria-expanded', 'false');
     btn.classList.remove('open');
   };
@@ -165,9 +240,9 @@ function createDropdown({ ariaLabel, placeholder = '', onChange } = {}) {
       };
       list.appendChild(item);
     }
-    list.hidden = false;
     btn.setAttribute('aria-expanded', 'true');
     btn.classList.add('open');
+    openFloat(list, btn, close); // portal 到 body,不参与设置卡片的滚动区
   };
 
   btn.onclick = () => (list.hidden ? open() : close());
@@ -187,7 +262,17 @@ function createDropdown({ ariaLabel, placeholder = '', onChange } = {}) {
       e.stopPropagation();
     }
   }, true);
-  document.addEventListener('click', (e) => { if (!root.contains(e.target)) close(); });
+  // 列表 portal 到 body 后不在 root 内,焦点落在列表项时需单独接住 Esc
+  list.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      close();
+      btn.focus();
+      e.stopPropagation();
+    }
+  }, true);
+  document.addEventListener('click', (e) => {
+    if (!root.contains(e.target) && !list.contains(e.target)) close();
+  });
 
   function setValue(v) {
     value = v;
@@ -1255,6 +1340,13 @@ async function loadSettingsState() {
     : t('settings.enterKey');
   $('btn-clear-llm').hidden = st.llm.source !== 'store';
 
+  // 服务端已把各服务商「测试连通」拉到的模型列表落盘(providers.json):
+  // 重开页面/重启服务后候选仍以实测列表为准,预设自带列表只作兜底
+  for (const [key, ids] of Object.entries(st.llm.modelsCache || {})) {
+    const list = normModelIds(ids);
+    if (list.length) S.fetchedModels.set(key, list);
+  }
+
   S.savedModelId = st.llm.model || '';
   S.modelValue = st.llm.model || '';
   applyPresetSelection(false); // 打开弹窗:不自动覆盖已存的 API 地址
@@ -1270,43 +1362,44 @@ function presetLabel(preset) {
   return hasKey(key) ? t(key) : preset.name;
 }
 
-/* ---- 模型选择器:可搜索下拉;候选按服务商(预设|地址)隔离,显示 name、提交 id ---- */
+/* ---- 模型选择器:可搜索下拉;候选按服务商(预设|地址)隔离,统一用模型 id ---- */
 
 /** 当前服务商标识:同一服务商的拉取结果互通,跨服务商互不混入 */
 function providerKey() {
   return `${presetDropdown.getValue()}|${$('llm-baseurl').value.trim()}`;
 }
 
-/** 当前候选:该服务商「测试连通」拉取过 → 整体替换为拉取结果;否则 = 已保存模型 + 预设自带 */
-function currentCandidates() {
-  const fetched = S.fetchedModels?.get(providerKey()) || [];
-  if (fetched.length) {
-    return fetched
-      .filter((it) => it && typeof it.id === 'string' && it.id)
-      .map((it) => ({ id: it.id, name: typeof it.name === 'string' && it.name ? it.name : null }));
-  }
-  const items = [];
-  const push = (id, name) => {
-    if (id && !items.some((x) => x.id === id)) items.push({ id, name: name || null });
-  };
-  push(S.savedModelId); // 已保存模型排最前,保证「记忆默认值」始终可选
-  (presetOf(presetDropdown.getValue())?.models || []).forEach((m) => push(m));
-  return items;
+/** 模型列表统一归一为 id 字符串(兼容旧常驻服务返回 [{id,name}],新旧后端都能吃) */
+function normModelIds(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((m) => (typeof m === 'string' ? m.trim() : (m && typeof m.id === 'string' ? m.id.trim() : '')))
+    .filter(Boolean);
 }
 
-function modelLabelOf(id) {
-  const it = (S.modelItems || []).find((x) => x.id === id);
-  return it ? (it.name || it.id) : (id || '');
+/** 当前候选(id 字符串,已去重):该服务商「测试连通」拉取过 → 整体替换为拉取结果;否则 = 已保存模型 + 预设自带 */
+function currentCandidates() {
+  const fetched = S.fetchedModels?.get(providerKey()) || [];
+  const source = fetched.length
+    ? fetched
+    : [S.savedModelId, ...(presetOf(presetDropdown.getValue())?.models || [])];
+  return [...new Set(normModelIds(source))];
+}
+
+/** 模型候选列表元素:展开时会被 portal 到 body,故统一按 id 取(不能再用祖先选择器) */
+function modelListEl() {
+  return $('llm-model-list');
+}
+
+function closeModelList() {
+  closeFloat(modelListEl());
 }
 
 /** 按当前服务商重算候选并回显;列表展开中则同步重绘(否则已展开的旧内容/空态不会消失)。默认值 = 已保存模型(记忆)在候选里则用它,否则取第一个候选 */
 function refreshModelOptions() {
   S.modelItems = currentCandidates();
-  S.modelValue = S.modelItems.some((it) => it.id === S.savedModelId)
-    ? S.savedModelId
-    : (S.modelItems[0]?.id || '');
-  $('llm-model-search').value = modelLabelOf(S.modelValue);
-  const list = document.querySelector('#llm-model-picker .model-picker-list');
+  S.modelValue = S.modelItems.includes(S.savedModelId) ? S.savedModelId : (S.modelItems[0] || '');
+  $('llm-model-search').value = S.modelValue;
+  const list = modelListEl();
   if (list && !list.hidden) renderModelList(true, '');
 }
 
@@ -1324,13 +1417,12 @@ function applyPresetSelection(fromUser) {
   refreshModelOptions();
 }
 
-/** 渲染候选列表;query 为过滤词(与输入框回显的已选模型名解耦)。显示 name,提交 id。 */
+/** 渲染候选列表;query 为过滤词(与输入框回显的已选模型解耦) */
 function renderModelList(show, query) {
-  const list = document.querySelector('#llm-model-picker .model-picker-list');
+  const list = modelListEl();
   const input = $('llm-model-search');
   const q = (query ?? '').trim().toLowerCase();
-  const hits = (S.modelItems || []).filter((it) =>
-    !q || it.id.toLowerCase().includes(q) || (it.name || '').toLowerCase().includes(q));
+  const hits = (S.modelItems || []).filter((id) => !q || id.toLowerCase().includes(q));
   list.innerHTML = '';
   if (!hits.length) {
     const empty = document.createElement('div');
@@ -1338,44 +1430,49 @@ function renderModelList(show, query) {
     empty.textContent = S.modelItems.length ? t('settings.noMatch') : t('settings.noCandidates');
     list.appendChild(empty);
   } else {
-    for (const it of hits) {
+    for (const id of hits) {
       const item = document.createElement('button');
       item.type = 'button';
-      item.className = 'model-picker-item' + (it.id === S.modelValue ? ' on' : '');
-      item.textContent = it.name || it.id;
-      item.title = it.name && it.name !== it.id ? `${it.name} · ${it.id}` : it.id;
+      item.className = 'model-picker-item' + (id === S.modelValue ? ' on' : '');
+      item.textContent = id;
+      item.title = id;
       item.onmousedown = (e) => e.preventDefault(); // 不抢 blur,先让点击落地
       item.onclick = () => {
-        S.modelValue = it.id;
-        input.value = it.name || it.id;
-        list.hidden = true;
+        S.modelValue = id;
+        input.value = id;
+        closeModelList();
       };
       list.appendChild(item);
     }
   }
-  list.hidden = !show;
+  if (!show) {
+    closeModelList();
+    return;
+  }
+  openFloat(list, input, closeModelList, { stretch: true }); // 展开后按输入框定位并按需重新测量
 }
 
 function initModelPicker() {
   S.modelItems = [];
   S.modelValue = '';
   S.savedModelId = '';
-  S.fetchedModels = new Map(); // providerKey → 该服务商「测试连通」拉取的模型项
+  S.fetchedModels = new Map(); // providerKey → 该服务商实测模型 id 列表(服务端缓存 + 本次「测试连通」拉取)
   const input = $('llm-model-search');
-  const list = document.querySelector('#llm-model-picker .model-picker-list');
+  const list = modelListEl();
   // 聚焦:全量展示候选(过滤词清空),并全选已选文本——键入即过滤
   input.addEventListener('focus', () => {
     input.select();
     renderModelList(true, '');
   });
   input.addEventListener('input', () => renderModelList(true, input.value));
-  // 失焦收起列表,输入框回显已选模型名(敲入的只是过滤词,不是值)
+  // 失焦收起列表,输入框回显已选模型(敲入的只是过滤词,不是值)
   input.addEventListener('blur', () => setTimeout(() => {
-    list.hidden = true;
-    input.value = modelLabelOf(S.modelValue);
+    closeModelList();
+    input.value = S.modelValue || '';
   }, 150));
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('#llm-model-picker')) list.hidden = true;
+    // 列表已 portal 到 body,点击列表本身(含滚动条)不算外部点击
+    if (!e.target.closest('#llm-model-picker') && !list.contains(e.target)) closeModelList();
   });
 }
 
@@ -1430,15 +1527,11 @@ async function testLlmFromUI() {
       const modelsNote = r.models?.length ? t('settings.llmModels', { n: r.models.length }) : '';
       setStatusLine('test-llm-status', esc(t('settings.llmOk', { ms: r.latencyMs, modelsNote })), 'ok');
       if (r.models?.length) {
-        // 后端两种返回都归一为 {id,name}:旧版进程返回字符串数组 ['id',…],新版返回 [{id,name}]
-        // (常驻服务不热重载,前端必须兼容运行中进程的旧结构,否则 id 取不到、候选被滤空)
-        const norm = r.models
-          .map((m) => (typeof m === 'string' ? { id: m, name: null } : m))
-          .filter((m) => m && typeof m.id === 'string' && m.id)
-          .map((m) => ({ id: m.id, name: typeof m.name === 'string' && m.name ? m.name : null }));
-        if (norm.length) {
-          // 拉取结果挂在当前服务商名下,整体替换该服务商的候选,不混入别家
-          S.fetchedModels.set(providerKey(), norm);
+        const ids = normModelIds(r.models); // 统一为 id 字符串,兼容新旧后端的返回结构
+        if (ids.length) {
+          // 拉取结果挂在当前服务商名下,整体替换该服务商的候选,不混入别家;
+          // 后端同时已把它落盘缓存,下次打开直接从 /api/settings 恢复
+          S.fetchedModels.set(providerKey(), ids);
           refreshModelOptions(); // 重算候选 + 回显;展开中的列表同步重绘,点开输入框也始终是最新
         }
       }
@@ -1633,6 +1726,7 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (closeAllFloats()) return; // 先收起展开的下拉 / 候选列表,再按 Esc 才关弹窗
     if (!$('consent-modal').hidden) hideConsent(false);
     else if (!$('revoke-modal').hidden) $('revoke-modal').hidden = true;
     else if (!$('unknown-modal').hidden) $('unknown-modal').hidden = true;
