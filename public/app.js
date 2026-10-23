@@ -505,6 +505,9 @@ function matches(card, group) {
 /* ============ 列表渲染 ============ */
 function renderGroups() {
   const box = $('groups');
+  // 重建前快照子分组开合状态:resize/搜索/密度切换都会整表重绘,不打断用户已折叠的子分组
+  const sgOpen = new Map();
+  box.querySelectorAll('details.subgroup[data-sg]').forEach((d) => sgOpen.set(d.dataset.sg, d.open));
   box.innerHTML = '';
   let visibleTotal = 0;
 
@@ -565,6 +568,8 @@ function renderGroups() {
       if (sg.name === '__lowconf__') {
         const det = document.createElement('details');
         det.className = 'subgroup lowconf';
+        det.dataset.sg = group.key + '::' + sg.name;
+        det.open = sgOpen.get(det.dataset.sg) ?? false;
         det.innerHTML = `<summary><span class="caret">▼</span>${esc(t('group.lowConfidence'))}<small>${sg.skills.length}</small></summary>`;
         det.appendChild(cardsGrid(sg.skills));
         body.appendChild(det);
@@ -574,7 +579,8 @@ function renderGroups() {
         // 仓库内分组:可折叠,默认展开
         const det = document.createElement('details');
         det.className = 'subgroup';
-        det.open = true;
+        det.dataset.sg = group.key + '::' + sg.name;
+        det.open = sgOpen.get(det.dataset.sg) ?? true;
         det.innerHTML = `<summary><span class="caret">▼</span>${esc(sg.name)}<small>${sg.skills.length}</small></summary>`;
         det.appendChild(cardsGrid(sg.skills));
         body.appendChild(det);
